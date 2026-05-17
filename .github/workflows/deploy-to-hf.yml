@@ -1,0 +1,25 @@
+name: Deploy to HuggingFace Spaces
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Push to HuggingFace
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          cp README.hf.md README.md
+          git config user.email "ci@github.com"
+          git config user.name "GitHub Actions"
+          git add README.md
+          git commit -m "chore: swap README for HF deploy" || true
+          git push "https://chiefkarim:${HF_TOKEN}@huggingface.co/spaces/chiefkarim/pdf-to-audio" main --force
