@@ -18,7 +18,9 @@ def get_sample_rate() -> int:
 
 
 def synthesise(sentence: str) -> np.ndarray:
-    if not sentence.strip():
+    cleaned = sentence.strip()
+    # Tacotron2 Conv1d requires at least ~5 phoneme frames; skip trivially short input.
+    if len(cleaned) < 3:
         return np.array([], dtype=np.float32)
-    result = _get_tts().tts(text=sentence)
+    result = _get_tts().tts(text=cleaned)
     return np.array(result, dtype=np.float32)

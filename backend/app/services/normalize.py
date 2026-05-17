@@ -45,10 +45,15 @@ def normalize_for_tts(text: str) -> str:
     # 6. Bare integers and decimals
     text = re.sub(r"\b\d+(?:\.\d+)?\b", _replace_bare_number, text)
 
-    # 7. Remove non-speech characters
+    # 7. Normalise Unicode punctuation to ASCII equivalents
+    text = text.replace("“", '"').replace("”", '"')  # curly double quotes
+    text = text.replace("‘", "'").replace("’", "'")  # curly single quotes / apostrophe
+    text = text.replace("—", " ").replace("–", " ")  # em-dash, en-dash
+
+    # 8. Remove non-speech characters
     text = re.sub(r"[|\\^~{}\[\]<>#@*]", " ", text)
 
-    # 8. Collapse whitespace
+    # 9. Collapse whitespace
     text = re.sub(r"\s+", " ", text).strip()
 
     return text
