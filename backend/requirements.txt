@@ -4,6 +4,7 @@ python-multipart==0.0.*
 pytesseract==0.3.*
 pdf2image==1.17.*
 TTS==0.22.*
+torch>=2.0,<2.6
 pedalboard==0.9.*
 soundfile==0.12.*
 pydub==0.25.*
