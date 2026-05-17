@@ -31,4 +31,6 @@ RUN mkdir -p /app/data
 RUN useradd -m -u 1000 appuser && chown -R appuser /app
 USER appuser
 
+RUN python -c "from TTS.api import TTS; TTS('tts_models/en/sam/tacotron-DDC', gpu=False)"
+
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
