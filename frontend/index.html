@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDF to Audio</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="header">
+      <h1 class="title">PDF to Audio</h1>
+      <p class="subtitle">Convert any PDF into broadcast-quality audio — fully offline.</p>
+    </header>
+
+    <form id="convert-form" class="card" novalidate>
+
+      <div class="field">
+        <label class="label" for="file-input">PDF File</label>
+        <div class="file-drop" id="file-drop">
+          <input
+            type="file"
+            id="file-input"
+            name="file"
+            accept=".pdf"
+            class="file-input-hidden"
+            aria-describedby="file-hint"
+          />
+          <div class="file-drop-inner" id="file-drop-inner">
+            <span class="file-icon" aria-hidden="true">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="12" y1="18" x2="12" y2="12"/>
+                <line x1="9" y1="15" x2="15" y2="15"/>
+              </svg>
+            </span>
+            <span class="file-drop-label" id="file-label">Choose a PDF or drag it here</span>
+            <span class="file-hint" id="file-hint">Only .pdf files are accepted</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="label" id="format-label">Output Format</span>
+        <div class="radio-group" role="radiogroup" aria-labelledby="format-label">
+          <label class="radio-option">
+            <input type="radio" name="format" value="mp3" checked />
+            <span class="radio-custom" aria-hidden="true"></span>
+            <span class="radio-text">
+              <strong>MP3</strong>
+              <span class="radio-desc">192 kbps — smaller file, great for sharing</span>
+            </span>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="format" value="wav" />
+            <span class="radio-custom" aria-hidden="true"></span>
+            <span class="radio-text">
+              <strong>WAV</strong>
+              <span class="radio-desc">16-bit PCM — lossless, larger file</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <button type="submit" id="convert-btn" class="btn-primary" disabled>
+        Convert
+      </button>
+    </form>
+
+    <section class="card" id="progress-section" hidden aria-live="polite" aria-label="Conversion progress">
+      <div class="progress-header">
+        <span class="progress-label" id="progress-label">Processing…</span>
+        <span class="progress-pct" id="progress-pct">0%</span>
+      </div>
+      <progress id="progress-bar" class="progress-bar" max="100" value="0"></progress>
+      <p class="progress-status" id="progress-status">Queued</p>
+    </section>
+
+    <section class="card card-success" id="download-section" hidden aria-live="polite">
+      <span class="success-icon" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </span>
+      <div class="success-body">
+        <p class="success-title">Conversion complete</p>
+        <a id="download-link" class="btn-download" download>Download audio</a>
+      </div>
+    </section>
+
+    <section class="card card-error" id="error-section" hidden aria-live="assertive">
+      <span class="error-icon" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </span>
+      <div class="error-body">
+        <p class="error-title">Something went wrong</p>
+        <p class="error-message" id="error-message"></p>
+        <button class="btn-secondary" id="retry-btn" type="button">Try again</button>
+      </div>
+    </section>
+
+    <section class="card" id="jobs-section" aria-label="All jobs">
+      <h2 class="jobs-heading">Jobs</h2>
+      <ul class="jobs-list" id="jobs-list" aria-live="polite">
+        <li class="jobs-empty" id="jobs-empty">No jobs yet.</li>
+      </ul>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+services:
+  app:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./frontend:/app/frontend:ro
+      - ./data:/app/data
+    environment:
+      - MAX_UPLOAD_MB=50
+      - DB_PATH=/app/data/jobs.db
+    restart: unless-stopped

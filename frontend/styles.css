@@ -1,0 +1,711 @@
+/* ── Reset & tokens ─────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg:          #0f1117;
+  --surface:     #1a1d27;
+  --surface-2:   #22263a;
+  --border:      #2e3348;
+  --border-focus:#5b6af0;
+  --text:        #e8eaf0;
+  --text-muted:  #7c8299;
+  --accent:      #5b6af0;
+  --accent-hover:#4a58e0;
+  --accent-dim:  rgba(91,106,240,0.12);
+  --success:     #34c97b;
+  --success-dim: rgba(52,201,123,0.10);
+  --error:       #f04f5b;
+  --error-dim:   rgba(240,79,91,0.10);
+  --radius:      10px;
+  --radius-sm:   6px;
+  --shadow:      0 4px 24px rgba(0,0,0,0.35);
+  --transition:  0.18s ease;
+  --font:        system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* badge palette */
+  --badge-queued-bg:     rgba(124,130,153,0.18);
+  --badge-queued-text:   #9aa0b8;
+  --badge-processing-bg: rgba(91,106,240,0.18);
+  --badge-processing-text: #8b9cf4;
+  --badge-paused-bg:     rgba(240,160,56,0.18);
+  --badge-paused-text:   #f0a038;
+  --badge-done-bg:       rgba(52,201,123,0.18);
+  --badge-done-text:     #34c97b;
+  --badge-error-bg:      rgba(240,79,91,0.18);
+  --badge-error-text:    #f04f5b;
+}
+
+/* ── Base ───────────────────────────────────────────────────────────── */
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  line-height: 1.6;
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 3rem 1rem 5rem;
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────── */
+.container {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────── */
+.header {
+  text-align: center;
+  padding: 0.5rem 0 0.75rem;
+}
+
+.title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.subtitle {
+  margin-top: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+/* ── Card ───────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.75rem;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ── Form fields ────────────────────────────────────────────────────── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ── File drop zone ─────────────────────────────────────────────────── */
+.file-drop {
+  position: relative;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  transition: border-color var(--transition), background var(--transition);
+  cursor: pointer;
+}
+
+.file-drop:hover,
+.file-drop.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.file-drop.has-file {
+  border-style: solid;
+  border-color: var(--accent);
+}
+
+.file-input-hidden {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.file-drop-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 2rem 1.5rem;
+  pointer-events: none;
+  text-align: center;
+}
+
+.file-icon {
+  color: var(--text-muted);
+  transition: color var(--transition);
+}
+
+.file-drop:hover .file-icon,
+.file-drop.drag-over .file-icon,
+.file-drop.has-file .file-icon {
+  color: var(--accent);
+}
+
+.file-drop-label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text);
+  transition: color var(--transition);
+}
+
+.file-drop.has-file .file-drop-label {
+  color: var(--accent);
+}
+
+.file-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* ── Radio group ────────────────────────────────────────────────────── */
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.radio-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+
+.radio-option:hover {
+  border-color: var(--accent);
+}
+
+.radio-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.radio-option input[type="radio"]:checked ~ .radio-custom {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.radio-option input[type="radio"]:checked ~ .radio-custom::after {
+  opacity: 1;
+}
+
+.radio-option input[type="radio"]:checked ~ .radio-text strong {
+  color: var(--accent);
+}
+
+.radio-option:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.radio-custom {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: transparent;
+  transition: border-color var(--transition), background var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.radio-custom::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+.radio-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  line-height: 1.3;
+}
+
+.radio-text strong {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  transition: color var(--transition);
+}
+
+.radio-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────── */
+.btn-primary {
+  width: 100%;
+  padding: 0.8rem 1.5rem;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: background var(--transition), opacity var(--transition), transform var(--transition);
+  letter-spacing: 0.01em;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-primary:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1.1rem;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-family: var(--font);
+  cursor: pointer;
+  margin-top: 0.5rem;
+  transition: border-color var(--transition), color var(--transition);
+}
+
+.btn-secondary:hover {
+  border-color: var(--text-muted);
+  color: var(--text);
+}
+
+.btn-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.2rem;
+  background: var(--success);
+  color: #0f1117;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+  margin-top: 0.4rem;
+  transition: opacity var(--transition), transform var(--transition);
+}
+
+.btn-download:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+/* ── Progress section ───────────────────────────────────────────────── */
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.progress-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.progress-pct {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-bar {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  border: none;
+  overflow: hidden;
+}
+
+.progress-bar::-webkit-progress-bar {
+  background: var(--surface-2);
+  border-radius: 999px;
+}
+
+.progress-bar::-webkit-progress-value {
+  background: linear-gradient(90deg, var(--accent), #8b9cf4);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.progress-bar::-moz-progress-bar {
+  background: linear-gradient(90deg, var(--accent), #8b9cf4);
+  border-radius: 999px;
+}
+
+.progress-status {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+/* ── Success card ───────────────────────────────────────────────────── */
+.card-success {
+  border-color: var(--success);
+  background: var(--success-dim);
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.success-icon {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  color: var(--success);
+}
+
+.success-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.success-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--success);
+}
+
+/* ── Error card ─────────────────────────────────────────────────────── */
+.card-error {
+  border-color: var(--error);
+  background: var(--error-dim);
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.error-icon {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  color: var(--error);
+}
+
+.error-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.error-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--error);
+}
+
+.error-message {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+  line-height: 1.5;
+}
+
+/* ── Jobs panel ─────────────────────────────────────────────────────── */
+#jobs-section {
+  gap: 1rem;
+}
+
+.jobs-heading {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.jobs-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.jobs-empty {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 0.5rem 0;
+}
+
+/* ── Job row ────────────────────────────────────────────────────────── */
+.job-row {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.job-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.job-id {
+  font-size: 0.8rem;
+  font-family: ui-monospace, "Cascadia Code", "Fira Code", monospace;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.job-badge {
+  display: inline-block;
+  padding: 0.15em 0.55em;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.job-badge--queued {
+  background: var(--badge-queued-bg);
+  color: var(--badge-queued-text);
+}
+
+.job-badge--processing {
+  background: var(--badge-processing-bg);
+  color: var(--badge-processing-text);
+}
+
+.job-badge--paused {
+  background: var(--badge-paused-bg);
+  color: var(--badge-paused-text);
+}
+
+.job-badge--done {
+  background: var(--badge-done-bg);
+  color: var(--badge-done-text);
+}
+
+.job-badge--error {
+  background: var(--badge-error-bg);
+  color: var(--badge-error-text);
+}
+
+.job-format {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.job-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.job-filename {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Job progress bar ───────────────────────────────────────────────── */
+.job-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.job-progress-bar {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 5px;
+  border-radius: 999px;
+  border: none;
+  overflow: hidden;
+}
+
+.job-progress-bar::-webkit-progress-bar {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+.job-progress-bar::-webkit-progress-value {
+  background: linear-gradient(90deg, var(--accent), #8b9cf4);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.job-progress-bar::-moz-progress-bar {
+  background: linear-gradient(90deg, var(--accent), #8b9cf4);
+  border-radius: 999px;
+}
+
+.job-progress-pct {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  width: 3ch;
+  flex-shrink: 0;
+}
+
+/* ── Job page counter ───────────────────────────────────────────────── */
+.job-pages {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-family: ui-monospace, "Cascadia Code", "Fira Code", monospace;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Job actions ────────────────────────────────────────────────────── */
+.job-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.btn-job {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.85rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: var(--font);
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity var(--transition), transform var(--transition);
+  border: none;
+}
+
+.btn-job:hover {
+  opacity: 0.82;
+  transform: translateY(-1px);
+}
+
+.btn-job--pause {
+  background: var(--badge-paused-bg);
+  color: var(--badge-paused-text);
+}
+
+.btn-job--resume {
+  background: var(--badge-processing-bg);
+  color: var(--badge-processing-text);
+}
+
+.btn-job--download {
+  background: var(--success);
+  color: #0f1117;
+  font-weight: 700;
+}
+
+/* ── Partial download button ────────────────────────────────────────── */
+.btn-job--partial {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.25rem 0.7rem;
+}
+
+.btn-job--partial:hover {
+  border-color: var(--text-muted);
+  color: var(--text);
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+.job-error-msg {
+  font-size: 0.8rem;
+  color: var(--badge-error-text);
+}
+
+/* ── Utility ────────────────────────────────────────────────────────── */
+[hidden] {
+  display: none !important;
+}
+
+/* ── Focus ring (a11y) ──────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .card {
+    padding: 1.25rem;
+  }
+
+  .title {
+    font-size: 1.4rem;
+  }
+
+  body {
+    padding: 1.5rem 0.75rem 4rem;
+  }
+}
