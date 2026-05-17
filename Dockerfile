@@ -13,10 +13,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY backend/requirements.txt .
+RUN uv pip install --system --no-cache \
+    torch==2.5.1 torchaudio==2.5.1 \
+    --index-url https://download.pytorch.org/whl/cpu
 RUN uv pip install --system --no-cache -r requirements.txt
-
-# Pre-download Coqui TTS model at build time so runtime is fully offline
-RUN python -c "from TTS.api import TTS; TTS('tts_models/en/sam/tacotron-DDC', gpu=False)"
 
 COPY backend/app/ ./app/
 COPY frontend/ ./frontend/
