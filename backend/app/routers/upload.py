@@ -61,7 +61,7 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat) -> None:
             pages_processed += 1
 
             # Re-export full accumulated audio so partial is always valid
-            partial = audio_chain.process_and_export(all_segments, tts.SAMPLE_RATE, fmt)
+            partial = audio_chain.process_and_export(all_segments, tts.get_sample_rate(), fmt)
             progress = int(100 * pages_processed / len(non_empty_pages))
 
             storage.update_job(

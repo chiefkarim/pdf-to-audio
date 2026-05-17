@@ -18,7 +18,7 @@ COPY requirements.txt .
 RUN uv pip install --system --no-cache -r requirements.txt
 
 # Pre-download Coqui TTS model at build time so runtime is fully offline
-RUN python -c "from TTS.api import TTS; TTS('tts_models/en/ljspeech/tacotron2-DDC', gpu=False)"
+RUN python -c "from TTS.api import TTS; TTS('tts_models/en/sam/tacotron-DDC', gpu=False)"
 
 # Copy app source
 COPY app/ ./app/

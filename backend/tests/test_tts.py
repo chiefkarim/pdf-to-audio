@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from app.services.tts import SAMPLE_RATE, synthesise
+from app.services.tts import get_sample_rate, synthesise
 
 
 @pytest.mark.slow
@@ -30,5 +30,5 @@ def test_synthesise_empty_input() -> None:
 
 
 @pytest.mark.slow
-def test_sample_rate_constant() -> None:
-    assert SAMPLE_RATE == 22050
+def test_sample_rate_positive() -> None:
+    assert get_sample_rate() > 0

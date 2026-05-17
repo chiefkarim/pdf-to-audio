@@ -1,7 +1,7 @@
 import numpy as np
 from TTS.api import TTS
 
-SAMPLE_RATE: int = 22050
+_MODEL = "tts_models/en/sam/tacotron-DDC"
 
 _tts: TTS | None = None
 
@@ -9,8 +9,12 @@ _tts: TTS | None = None
 def _get_tts() -> TTS:
     global _tts
     if _tts is None:
-        _tts = TTS("tts_models/en/ljspeech/tacotron2-DDC", gpu=False)
+        _tts = TTS(_MODEL, gpu=False)
     return _tts
+
+
+def get_sample_rate() -> int:
+    return int(_get_tts().synthesizer.output_sample_rate)
 
 
 def synthesise(sentence: str) -> np.ndarray:
