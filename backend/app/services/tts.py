@@ -1,7 +1,7 @@
 import numpy as np
 from TTS.api import TTS
 
-_MODEL = "tts_models/en/sam/tacotron-DDC"
+_MODEL = "tts_models/en/ljspeech/tacotron2-DDC"
 
 _tts: TTS | None = None
 
