@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     ffmpeg \
     libsndfile1 \
+    espeak-ng \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -15,7 +16,7 @@ COPY backend/requirements.txt .
 RUN uv pip install --system --no-cache -r requirements.txt
 
 # Pre-download Coqui TTS model at build time so runtime is fully offline
-RUN python -c "from TTS.api import TTS; TTS('tts_models/en/ljspeech/tacotron2-DDC', gpu=False)"
+RUN python -c "from TTS.api import TTS; TTS('tts_models/en/sam/tacotron-DDC', gpu=False)"
 
 COPY backend/app/ ./app/
 COPY frontend/ ./frontend/
