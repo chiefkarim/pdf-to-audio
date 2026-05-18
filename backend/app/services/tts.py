@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 _QUALITY_MODEL = "tts_models/en/ljspeech/tacotron2-DDC"
 _FAST_MODEL_ID = "facebook/mms-tts-eng"
 _MAX_CHARS = 150
-_MAX_CHARS_FAST = 500
+_MAX_CHARS_FAST = 200
 
 SAMPLE_RATES: dict[str, int] = {"fast": 16000, "quality": 22050}
 
@@ -39,6 +39,7 @@ def _get_fast_model() -> tuple[VitsModel, AutoTokenizer]:
         logger.info("loading fast TTS model: %s", _FAST_MODEL_ID)
         tokenizer = AutoTokenizer.from_pretrained(_FAST_MODEL_ID)
         model = VitsModel.from_pretrained(_FAST_MODEL_ID)
+        torch.backends.mkldnn.enabled = False
         _fast_tokenizer, _fast_model = tokenizer, model
         logger.info("fast TTS model loaded")
     return _fast_model, _fast_tokenizer
@@ -105,18 +106,24 @@ def synthesise(sentence: str, mode: TtsMode = TtsMode.fast) -> np.ndarray:
     chunks = _chunk_fast(cleaned)
     model, tokenizer = _get_fast_model()
     arrays: list[np.ndarray] = []
-    with torch.no_grad():
+    with torch.inference_mode():
         for c in chunks:
             inputs = tokenizer(text=c, return_tensors="pt")
-            waveform = model(**inputs).waveform.squeeze(0).detach().numpy().astype(np.float32, copy=True)
-            del inputs
-            arrays.append(waveform)
+            output = model(**inputs)
+            wav = output.waveform.squeeze(0).numpy().astype(np.float32, copy=True)
+            del output, inputs
+            arrays.append(wav)
     return np.concatenate(arrays) if arrays else np.array([], dtype=np.float32)
+
+
+def _worker_init() -> None:
+    torch.set_num_threads(1)
+    torch.set_num_interop_threads(1)
 
 
 def make_executor(mode: TtsMode) -> concurrent.futures.ThreadPoolExecutor:
     workers = min(8, max(2, (os.cpu_count() or 4) - 1))
-    return concurrent.futures.ThreadPoolExecutor(max_workers=workers)
+    return concurrent.futures.ThreadPoolExecutor(max_workers=workers, initializer=_worker_init)
 
 
 def synthesise_parallel(

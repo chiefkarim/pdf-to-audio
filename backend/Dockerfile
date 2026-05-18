@@ -38,4 +38,14 @@ COPY app/ ./app/
 ENV PYTHONPATH=/app
 ENV MAX_UPLOAD_MB=50
 
+# Prevent glibc per-thread arena fragmentation from PyTorch CPU tensor allocs.
+# MALLOC_ARENA_MAX=2: cap arenas at 2 instead of default 8*ncpu so malloc_trim
+# can reclaim memory from worker thread arenas.
+# MALLOC_MMAP_THRESHOLD_=65536: tensors >=64KB use mmap and are immediately
+# returned to OS on free() rather than held in arena free-lists.
+# MALLOC_TRIM_THRESHOLD_=65536: trigger trim automatically after 64KB is freed.
+ENV MALLOC_ARENA_MAX=2
+ENV MALLOC_MMAP_THRESHOLD_=65536
+ENV MALLOC_TRIM_THRESHOLD_=65536
+
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
