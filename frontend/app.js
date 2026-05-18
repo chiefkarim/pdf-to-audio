@@ -80,6 +80,7 @@ form.addEventListener("submit", async (e) => {
 
   const file   = fileInput.files[0];
   const format = form.querySelector("input[name='format']:checked").value;
+  const mode   = form.querySelector("input[name='mode']:checked").value;
 
   if (!file) {
     showError("Please select a PDF file.");
@@ -89,6 +90,7 @@ form.addEventListener("submit", async (e) => {
   const body = new FormData();
   body.append("file",   file);
   body.append("format", format);
+  body.append("mode",   mode);
 
   convertBtn.disabled = true;
   setProgress(0, "Uploading…", "queued");
@@ -187,6 +189,7 @@ function buildJobRow(job) {
     el("span", { class: "job-id", title: job.job_id }, job.job_id.slice(0, 8)),
     el("span", { class: "job-badge job-badge--" + job.status }, job.status),
     el("span", { class: "job-format" }, job.format),
+    job.mode ? el("span", { class: "job-mode job-mode--" + job.mode }, job.mode) : null,
     job.filename ? el("span", { class: "job-filename", title: job.filename }, job.filename) : null,
     el("span", { class: "job-time" }, relative_time(job.created_at))
   );

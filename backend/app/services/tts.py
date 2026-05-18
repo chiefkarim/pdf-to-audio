@@ -29,8 +29,9 @@ def _get_quality_tts() -> TTS:
 def _get_fast_model() -> tuple[VitsModel, AutoTokenizer]:
     global _fast_model, _fast_tokenizer
     if _fast_model is None or _fast_tokenizer is None:
-        _fast_tokenizer = AutoTokenizer.from_pretrained(_FAST_MODEL_ID)
-        _fast_model = VitsModel.from_pretrained(_FAST_MODEL_ID)
+        tokenizer = AutoTokenizer.from_pretrained(_FAST_MODEL_ID)
+        model = VitsModel.from_pretrained(_FAST_MODEL_ID)
+        _fast_tokenizer, _fast_model = tokenizer, model
     return _fast_model, _fast_tokenizer
 
 
@@ -97,7 +98,7 @@ def synthesise(sentence: str, mode: TtsMode = TtsMode.fast) -> np.ndarray:
     arrays: list[np.ndarray] = []
     for c in chunks:
         inputs = tokenizer(text=c, return_tensors="pt")
-        waveform = model(**inputs).waveform.squeeze().numpy().astype(np.float32)
+        waveform = model(**inputs).waveform.squeeze(0).numpy().astype(np.float32)
         arrays.append(waveform)
     return np.concatenate(arrays) if arrays else np.array([], dtype=np.float32)
 

@@ -110,5 +110,5 @@ async def upload_pdf(
 
     return JSONResponse(
         status_code=202,
-        content={"job_id": job_id, "status": "queued", "mode": mode},
+        content={"job_id": job_id, "status": "queued", "mode": mode.value},
     )

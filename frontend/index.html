@@ -63,6 +63,28 @@
         </div>
       </div>
 
+      <div class="field">
+        <span class="label" id="mode-label">Quality</span>
+        <div class="radio-group" role="radiogroup" aria-labelledby="mode-label">
+          <label class="radio-option">
+            <input type="radio" name="mode" value="fast" checked />
+            <span class="radio-custom" aria-hidden="true"></span>
+            <span class="radio-text">
+              <strong>Fast</strong>
+              <span class="radio-desc">MMS-TTS — ~10× real-time, 16 kHz</span>
+            </span>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="mode" value="quality" />
+            <span class="radio-custom" aria-hidden="true"></span>
+            <span class="radio-text">
+              <strong>Quality</strong>
+              <span class="radio-desc">Tacotron2 — richer prosody, 22 kHz</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
       <button type="submit" id="convert-btn" class="btn-primary" disabled>
         Convert
       </button>

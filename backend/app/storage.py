@@ -45,8 +45,9 @@ def init_db() -> None:
         ]:
             try:
                 _conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} {definition}")
-            except sqlite3.OperationalError:
-                pass  # column already exists
+            except sqlite3.OperationalError as e:
+                if "duplicate column name" not in str(e):
+                    raise
 
         placeholders = ",".join("?" for _ in _STALE_STATUSES)
         _conn.execute(

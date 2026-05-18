@@ -27,7 +27,7 @@ def extract_pages(pdf_path: Path) -> list[list[str]]:
                 text = raw_text
                 extraction_method = "direct"
             else:
-                pixmap = page.get_pixmap(dpi=200)
+                pixmap = page.get_pixmap(dpi=200, alpha=False)
                 image = PIL.Image.frombytes(
                     "RGB", [pixmap.width, pixmap.height], pixmap.samples
                 )
@@ -39,7 +39,7 @@ def extract_pages(pdf_path: Path) -> list[list[str]]:
                 extraction_method,
                 len(text),
             )
-            parts = re.split(r"(?<=[.?!])\s+", text)
+            parts = re.split(r"(?<=[.?!])\s+|\n{2,}", text)
             sentences = [normalize_for_tts(s) for s in parts if s.strip()]
             result.append(sentences)
     return result

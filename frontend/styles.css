@@ -551,6 +551,17 @@ body {
   margin-left: auto;
 }
 
+.job-mode {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+.job-mode--fast    { background: rgba(91,106,240,0.15); color: #7b8ef5; }
+.job-mode--quality { background: rgba(52,201,123,0.12); color: #34c97b; }
+
 .job-time {
   font-size: 0.75rem;
   color: var(--text-muted);

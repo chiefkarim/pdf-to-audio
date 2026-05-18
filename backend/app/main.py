@@ -16,7 +16,7 @@ async def lifespan(app: FastAPI):
     # Warm up fast TTS model at startup so the first request isn't slow.
     # Runs in a thread to avoid blocking the event loop during download.
     import asyncio
-    await asyncio.get_event_loop().run_in_executor(None, lambda: tts.synthesise(" ", TtsMode.fast))
+    await asyncio.get_event_loop().run_in_executor(None, lambda: tts.synthesise("warmup", TtsMode.fast))
     yield
 
 
