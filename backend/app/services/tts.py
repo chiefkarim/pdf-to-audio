@@ -3,6 +3,7 @@ import re
 import functools
 import concurrent.futures
 import numpy as np
+import torch
 from TTS.api import TTS
 from transformers import VitsModel, AutoTokenizer
 from app.models.schemas import TtsMode
@@ -17,6 +18,11 @@ SAMPLE_RATES: dict[str, int] = {"fast": 16000, "quality": 22050}
 _quality_tts: TTS | None = None
 _fast_model: VitsModel | None = None
 _fast_tokenizer: AutoTokenizer | None = None
+
+
+def _worker_init() -> None:
+    torch.set_num_threads(1)
+    torch.set_num_interop_threads(1)
 
 
 def _get_quality_tts() -> TTS:
@@ -96,25 +102,33 @@ def synthesise(sentence: str, mode: TtsMode = TtsMode.fast) -> np.ndarray:
     chunks = _chunk_fast(cleaned)
     model, tokenizer = _get_fast_model()
     arrays: list[np.ndarray] = []
-    for c in chunks:
-        inputs = tokenizer(text=c, return_tensors="pt")
-        waveform = model(**inputs).waveform.squeeze(0).detach().numpy().astype(np.float32)
-        arrays.append(waveform)
+    with torch.no_grad():
+        for c in chunks:
+            inputs = tokenizer(text=c, return_tensors="pt")
+            waveform = model(**inputs).waveform.squeeze(0).numpy().astype(np.float32)
+            arrays.append(waveform)
     return np.concatenate(arrays) if arrays else np.array([], dtype=np.float32)
 
 
+def make_executor(mode: TtsMode) -> concurrent.futures.ProcessPoolExecutor:
+    n = min(os.cpu_count() or 1, 2 if mode == TtsMode.quality else 99)
+    return concurrent.futures.ProcessPoolExecutor(
+        max_workers=n, initializer=_worker_init
+    )
+
+
 def synthesise_parallel(
-    sentences: list[str], mode: TtsMode = TtsMode.fast
+    sentences: list[str],
+    mode: TtsMode = TtsMode.fast,
+    executor: concurrent.futures.ProcessPoolExecutor | None = None,
 ) -> list[np.ndarray]:
     filtered = [s for s in sentences if len(s.strip()) >= 3]
     if not filtered:
         return []
 
-    n_workers = min(os.cpu_count() or 1, len(filtered))
-    if mode == TtsMode.quality:
-        n_workers = min(n_workers, 2)
-
     worker_fn = functools.partial(synthesise, mode=mode)
-    with concurrent.futures.ProcessPoolExecutor(max_workers=n_workers) as executor:
-        results = list(executor.map(worker_fn, filtered, chunksize=1))
-    return results
+    if executor is not None:
+        return list(executor.map(worker_fn, filtered, chunksize=1))
+
+    with make_executor(mode) as ex:
+        return list(ex.map(worker_fn, filtered, chunksize=1))

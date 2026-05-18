@@ -44,27 +44,28 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
         partial: bytes = b""
         pages_processed = 0
 
-        for _, sentences in non_empty_pages:
-            # Pause check before each page
-            event = storage.get_pause_event(job_id)
-            if event:
-                event.wait()
+        with tts.make_executor(mode) as executor:
+            for _, sentences in non_empty_pages:
+                # Pause check before each page
+                event = storage.get_pause_event(job_id)
+                if event:
+                    event.wait()
 
-            segments = tts.synthesise_parallel(sentences, mode=mode)
-            all_segments.extend(segments)
+                segments = tts.synthesise_parallel(sentences, mode=mode, executor=executor)
+                all_segments.extend(segments)
 
-            pages_processed += 1
+                pages_processed += 1
 
-            # Re-export full accumulated audio so partial is always valid
-            partial = audio_chain.process_and_export(all_segments, tts.get_sample_rate(mode), fmt)
-            progress = int(100 * pages_processed / len(non_empty_pages))
+                # Re-export full accumulated audio so partial is always valid
+                partial = audio_chain.process_and_export(all_segments, tts.get_sample_rate(mode), fmt)
+                progress = int(100 * pages_processed / len(non_empty_pages))
 
-            storage.update_job(
-                job_id,
-                pages_done=pages_processed,
-                partial_bytes=partial,
-                progress=progress,
-            )
+                storage.update_job(
+                    job_id,
+                    pages_done=pages_processed,
+                    partial_bytes=partial,
+                    progress=progress,
+                )
 
         storage.update_job(
             job_id,
