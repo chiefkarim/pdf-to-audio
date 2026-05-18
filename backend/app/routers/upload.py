@@ -109,7 +109,7 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
             try:
                 storage.update_job(job_id, status=JobStatus.error, error=str(e))
             except Exception:
-                pass
+                logger.exception("failed to mark job %s as error; job may appear stuck", job_id)
             raise
         finally:
             tmp_path.unlink(missing_ok=True)
