@@ -49,25 +49,25 @@ def _export_mp3(audio: np.ndarray, sample_rate: int) -> bytes:
     return buf.getvalue()
 
 
+def apply_dsp(segments: list[np.ndarray], sample_rate: int) -> list[np.ndarray]:
+    board = _build_board()
+    return [_process_segment(board, seg, sample_rate) for seg in segments if len(seg) > 0]
+
+
+def encode(dsp_segments: list[np.ndarray], sample_rate: int, fmt: ExportFormat) -> bytes:
+    if not dsp_segments:
+        return b""
+    combined = np.concatenate(dsp_segments, axis=0)
+    rms = np.sqrt(np.mean(combined**2))
+    logger.info("audio rms: %.4f", rms)
+    if fmt == ExportFormat.wav:
+        return _export_wav(combined, sample_rate)
+    return _export_mp3(combined, sample_rate)
+
+
 def process_and_export(
     segments: list[np.ndarray],
     sample_rate: int,
     fmt: ExportFormat,
 ) -> bytes:
-    segments = [s for s in segments if len(s) > 0]
-    if not segments:
-        return b""
-
-    board = _build_board()
-    processed_segments: list[np.ndarray] = [
-        _process_segment(board, seg, sample_rate) for seg in segments
-    ]
-
-    combined = np.concatenate(processed_segments, axis=0)
-
-    rms = np.sqrt(np.mean(combined**2))
-    logger.info("audio rms: %.4f", rms)
-
-    if fmt == ExportFormat.wav:
-        return _export_wav(combined, sample_rate)
-    return _export_mp3(combined, sample_rate)
+    return encode(apply_dsp(segments, sample_rate), sample_rate, fmt)

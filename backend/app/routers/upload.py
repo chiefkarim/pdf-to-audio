@@ -46,10 +46,12 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
         ocr_thread = threading.Thread(target=_ocr_producer, daemon=True)
         ocr_thread.start()
 
-        all_segments: list[np.ndarray] = []
+        dsp_cache: list[np.ndarray] = []
         partial: bytes = b""
         pages_processed = 0
         ocr_count = 0
+        sample_rate = tts.get_sample_rate(mode)
+        PARTIAL_EVERY = 5
 
         with tts.make_executor(mode) as executor:
             while True:
@@ -67,34 +69,33 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
 
                 if sentences:
                     segments = tts.synthesise_parallel(sentences, mode=mode, executor=executor)
-                    all_segments.extend(segments)
+                    dsp_cache.extend(audio_chain.apply_dsp(segments, sample_rate))
 
                 if is_ocr:
                     ocr_count += 1
 
                 pages_processed += 1
-                partial = audio_chain.process_and_export(all_segments, tts.get_sample_rate(mode), fmt)
                 progress = int(100 * pages_processed / total_pages)
 
-                storage.update_job(
-                    job_id,
-                    pages_done=pages_processed,
-                    ocr_pages=ocr_count,
-                    partial_bytes=partial,
-                    progress=progress,
-                )
+                update: dict = dict(pages_done=pages_processed, ocr_pages=ocr_count, progress=progress)
+                if pages_processed % PARTIAL_EVERY == 0:
+                    partial = audio_chain.encode(dsp_cache, sample_rate, fmt)
+                    update["partial_bytes"] = partial
+
+                storage.update_job(job_id, **update)
 
         ocr_thread.join()
 
-        if not all_segments:
+        if not dsp_cache:
             storage.update_job(job_id, status=JobStatus.error, error="No text found in PDF")
             return
 
+        result = audio_chain.encode(dsp_cache, sample_rate, fmt)
         storage.update_job(
             job_id,
             status=JobStatus.done,
             progress=100,
-            result_bytes=partial,
+            result_bytes=result,
         )
     except Exception as e:
         storage.update_job(job_id, status=JobStatus.error, error=str(e))

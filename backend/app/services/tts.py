@@ -1,4 +1,3 @@
-import os
 import re
 import functools
 import concurrent.futures
@@ -19,10 +18,6 @@ _quality_tts: TTS | None = None
 _fast_model: VitsModel | None = None
 _fast_tokenizer: AutoTokenizer | None = None
 
-
-def _worker_init() -> None:
-    torch.set_num_threads(1)
-    torch.set_num_interop_threads(1)
 
 
 def _get_quality_tts() -> TTS:
@@ -110,17 +105,14 @@ def synthesise(sentence: str, mode: TtsMode = TtsMode.fast) -> np.ndarray:
     return np.concatenate(arrays) if arrays else np.array([], dtype=np.float32)
 
 
-def make_executor(mode: TtsMode) -> concurrent.futures.ProcessPoolExecutor:
-    n = min(os.cpu_count() or 1, 2 if mode == TtsMode.quality else 99)
-    return concurrent.futures.ProcessPoolExecutor(
-        max_workers=n, initializer=_worker_init
-    )
+def make_executor(mode: TtsMode) -> concurrent.futures.ThreadPoolExecutor:
+    return concurrent.futures.ThreadPoolExecutor(max_workers=2)
 
 
 def synthesise_parallel(
     sentences: list[str],
     mode: TtsMode = TtsMode.fast,
-    executor: concurrent.futures.ProcessPoolExecutor | None = None,
+    executor: concurrent.futures.ThreadPoolExecutor | None = None,
 ) -> list[np.ndarray]:
     filtered = [s for s in sentences if len(s.strip()) >= 3]
     if not filtered:
