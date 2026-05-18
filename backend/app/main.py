@@ -2,6 +2,8 @@ import torch
 torch.set_num_threads(1)
 torch.set_num_interop_threads(1)
 
+import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -14,13 +16,30 @@ from app.services import tts
 from app.models.schemas import TtsMode
 
 
+def _configure_logging() -> None:
+    level = os.getenv("LOG_LEVEL", "INFO").upper()
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%SZ",
+        force=True,
+    )
+    logging.Formatter.converter = __import__("time").gmtime
+    for name in ("uvicorn.access", "urllib3", "filelock", "transformers", "torch"):
+        logging.getLogger(name).setLevel(logging.WARNING)
+
+
+_configure_logging()
+
+_logger = logging.getLogger(__name__)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     storage.init_db()
-    # Warm up fast TTS model at startup so the first request isn't slow.
-    # Runs in a thread to avoid blocking the event loop during download.
     import asyncio
     await asyncio.get_event_loop().run_in_executor(None, lambda: tts.synthesise("warmup", TtsMode.fast))
+    _logger.info("startup: model warmup complete")
     yield
 
 

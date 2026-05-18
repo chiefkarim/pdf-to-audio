@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import functools
@@ -7,6 +8,8 @@ import torch
 from TTS.api import TTS
 from transformers import VitsModel, AutoTokenizer
 from app.models.schemas import TtsMode
+
+logger = logging.getLogger(__name__)
 
 _QUALITY_MODEL = "tts_models/en/ljspeech/tacotron2-DDC"
 _FAST_MODEL_ID = "facebook/mms-tts-eng"
@@ -24,16 +27,20 @@ _fast_tokenizer: AutoTokenizer | None = None
 def _get_quality_tts() -> TTS:
     global _quality_tts
     if _quality_tts is None:
+        logger.info("loading quality TTS model: %s", _QUALITY_MODEL)
         _quality_tts = TTS(_QUALITY_MODEL, gpu=False)
+        logger.info("quality TTS model loaded")
     return _quality_tts
 
 
 def _get_fast_model() -> tuple[VitsModel, AutoTokenizer]:
     global _fast_model, _fast_tokenizer
     if _fast_model is None or _fast_tokenizer is None:
+        logger.info("loading fast TTS model: %s", _FAST_MODEL_ID)
         tokenizer = AutoTokenizer.from_pretrained(_FAST_MODEL_ID)
         model = VitsModel.from_pretrained(_FAST_MODEL_ID)
         _fast_tokenizer, _fast_model = tokenizer, model
+        logger.info("fast TTS model loaded")
     return _fast_model, _fast_tokenizer
 
 

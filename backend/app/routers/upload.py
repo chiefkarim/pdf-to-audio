@@ -22,12 +22,14 @@ def _get_max_bytes() -> int:
 
 
 def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode) -> None:
+    logger.info("job %s started: format=%s mode=%s", job_id, fmt, mode)
     with tempfile.TemporaryDirectory() as page_dir_str:
         page_dir = Path(page_dir_str)
         try:
             storage.update_job(job_id, status=JobStatus.processing, progress=0)
 
             total_pages = ocr.page_count(tmp_path)
+            logger.info("job %s: pdf has %d pages", job_id, total_pages)
             if total_pages == 0:
                 storage.update_job(job_id, status=JobStatus.error, error="Empty PDF")
                 return
@@ -47,6 +49,7 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
 
             ocr_thread = threading.Thread(target=_ocr_producer, daemon=True)
             ocr_thread.start()
+            logger.info("job %s: OCR thread started", job_id)
 
             wav_paths: list[Path] = []
             pages_processed = 0
@@ -63,6 +66,7 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
                         raise item
 
                     _, sentences, is_ocr = item
+                    logger.debug("job %s: page %d/%d extraction=%s sentences=%d", job_id, pages_processed + 1, total_pages, "ocr" if is_ocr else "native", len(sentences))
 
                     event = storage.get_pause_event(job_id)
                     if event:
@@ -70,11 +74,13 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
 
                     if sentences:
                         segments = tts.synthesise_parallel(sentences, mode=mode, executor=executor)
+                        logger.debug("job %s: page %d TTS done, %d segments", job_id, pages_processed + 1, len(segments))
                         dsp = audio_chain.apply_dsp(segments, sample_rate)
                         if dsp:
                             wav_path = page_dir / f"{pages_processed:06d}.wav"
                             wav_path.write_bytes(audio_chain.encode(dsp, sample_rate, ExportFormat.wav))
                             wav_paths.append(wav_path)
+                            logger.debug("job %s: page %d encoded to disk", job_id, pages_processed + 1)
 
                     if is_ocr:
                         ocr_count += 1
@@ -85,7 +91,9 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
                     update: dict = dict(pages_done=pages_processed, ocr_pages=ocr_count, progress=progress)
                     if pages_processed % PARTIAL_EVERY == 0 and wav_paths:
                         try:
-                            update["partial_bytes"] = audio_chain.ffmpeg_concat_files(wav_paths, fmt)
+                            partial = audio_chain.ffmpeg_concat_files(wav_paths, fmt)
+                            logger.debug("job %s: partial audio at page %d (%d bytes)", job_id, pages_processed, len(partial))
+                            update["partial_bytes"] = partial
                         except Exception:
                             logger.warning("partial audio generation failed at page %d", pages_processed)
 
@@ -98,6 +106,7 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
                 return
 
             result = audio_chain.ffmpeg_concat_files(wav_paths, fmt)
+            logger.info("job %s: final audio ready (%d bytes)", job_id, len(result))
             storage.update_job(
                 job_id,
                 status=JobStatus.done,
@@ -105,7 +114,9 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
                 result_bytes=result,
                 partial_bytes=None,
             )
+            logger.info("job %s: done", job_id)
         except Exception as e:
+            logger.error("job %s: pipeline error: %s", job_id, e, exc_info=True)
             try:
                 storage.update_job(job_id, status=JobStatus.error, error=str(e) or repr(e))
             except Exception:
@@ -141,6 +152,7 @@ async def upload_pdf(
 
     filename = file.filename or ""
     job_id = storage.create_job(format, filename=filename, mode=mode)
+    logger.info("upload accepted: job=%s file=%r size=%d format=%s mode=%s", job_id, filename, total_size, format, mode)
 
     background_tasks.add_task(_run_pipeline, job_id, tmp_path, format, mode)
 
