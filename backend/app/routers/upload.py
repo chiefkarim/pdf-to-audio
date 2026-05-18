@@ -22,90 +22,94 @@ def _get_max_bytes() -> int:
 
 
 def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode) -> None:
-    try:
-        storage.update_job(job_id, status=JobStatus.processing, progress=0)
+    with tempfile.TemporaryDirectory() as page_dir_str:
+        page_dir = Path(page_dir_str)
+        try:
+            storage.update_job(job_id, status=JobStatus.processing, progress=0)
 
-        total_pages = ocr.page_count(tmp_path)
-        if total_pages == 0:
-            storage.update_job(job_id, status=JobStatus.error, error="Empty PDF")
-            return
+            total_pages = ocr.page_count(tmp_path)
+            if total_pages == 0:
+                storage.update_job(job_id, status=JobStatus.error, error="Empty PDF")
+                return
 
-        storage.update_job(job_id, pages_total=total_pages)
+            storage.update_job(job_id, pages_total=total_pages)
 
-        # Bounded queue — OCR thread stays at most 3 pages ahead of TTS consumer.
-        page_queue: queue.Queue = queue.Queue(maxsize=3)
+            page_queue: queue.Queue = queue.Queue(maxsize=3)
 
-        def _ocr_producer() -> None:
-            try:
-                for page_idx, sentences, is_ocr in ocr.stream_pages(tmp_path):
-                    page_queue.put((page_idx, sentences, is_ocr))
-            except Exception as exc:
-                page_queue.put(exc)
-            finally:
-                page_queue.put(None)
+            def _ocr_producer() -> None:
+                try:
+                    for page_idx, sentences, is_ocr in ocr.stream_pages(tmp_path):
+                        page_queue.put((page_idx, sentences, is_ocr))
+                except Exception as exc:
+                    page_queue.put(exc)
+                finally:
+                    page_queue.put(None)
 
-        ocr_thread = threading.Thread(target=_ocr_producer, daemon=True)
-        ocr_thread.start()
+            ocr_thread = threading.Thread(target=_ocr_producer, daemon=True)
+            ocr_thread.start()
 
-        page_chunks: list[bytes] = []
-        pages_processed = 0
-        ocr_count = 0
-        sample_rate = tts.get_sample_rate(mode)
-        PARTIAL_EVERY = 5
+            wav_paths: list[Path] = []
+            pages_processed = 0
+            ocr_count = 0
+            sample_rate = tts.get_sample_rate(mode)
+            PARTIAL_EVERY = 5
 
-        with tts.make_executor(mode) as executor:
-            while True:
-                item = page_queue.get()
-                if item is None:
-                    break
-                if isinstance(item, Exception):
-                    raise item
+            with tts.make_executor(mode) as executor:
+                while True:
+                    item = page_queue.get()
+                    if item is None:
+                        break
+                    if isinstance(item, Exception):
+                        raise item
 
-                _, sentences, is_ocr = item
+                    _, sentences, is_ocr = item
 
-                event = storage.get_pause_event(job_id)
-                if event:
-                    event.wait()
+                    event = storage.get_pause_event(job_id)
+                    if event:
+                        event.wait()
 
-                if sentences:
-                    segments = tts.synthesise_parallel(sentences, mode=mode, executor=executor)
-                    dsp = audio_chain.apply_dsp(segments, sample_rate)
-                    if dsp:
-                        page_chunks.append(audio_chain.encode(dsp, sample_rate, ExportFormat.wav))
+                    if sentences:
+                        segments = tts.synthesise_parallel(sentences, mode=mode, executor=executor)
+                        dsp = audio_chain.apply_dsp(segments, sample_rate)
+                        if dsp:
+                            wav_path = page_dir / f"{pages_processed:06d}.wav"
+                            wav_path.write_bytes(audio_chain.encode(dsp, sample_rate, ExportFormat.wav))
+                            wav_paths.append(wav_path)
 
-                if is_ocr:
-                    ocr_count += 1
+                    if is_ocr:
+                        ocr_count += 1
 
-                pages_processed += 1
-                progress = int(100 * pages_processed / total_pages)
+                    pages_processed += 1
+                    progress = int(100 * pages_processed / total_pages)
 
-                update: dict = dict(pages_done=pages_processed, ocr_pages=ocr_count, progress=progress)
-                if pages_processed % PARTIAL_EVERY == 0 and page_chunks:
-                    try:
-                        update["partial_bytes"] = audio_chain.ffmpeg_concat(page_chunks, fmt)
-                    except Exception:
-                        logger.warning("partial audio generation failed at page %d", pages_processed)
+                    update: dict = dict(pages_done=pages_processed, ocr_pages=ocr_count, progress=progress)
+                    if pages_processed % PARTIAL_EVERY == 0 and wav_paths:
+                        try:
+                            update["partial_bytes"] = audio_chain.ffmpeg_concat_files(wav_paths, fmt)
+                        except Exception:
+                            logger.warning("partial audio generation failed at page %d", pages_processed)
 
-                storage.update_job(job_id, **update)
+                    storage.update_job(job_id, **update)
 
-        ocr_thread.join()
+            ocr_thread.join()
 
-        if not page_chunks:
-            storage.update_job(job_id, status=JobStatus.error, error="No text found in PDF")
-            return
+            if not wav_paths:
+                storage.update_job(job_id, status=JobStatus.error, error="No text found in PDF")
+                return
 
-        result = audio_chain.ffmpeg_concat(page_chunks, fmt)
-        storage.update_job(
-            job_id,
-            status=JobStatus.done,
-            progress=100,
-            result_bytes=result,
-        )
-    except Exception as e:
-        storage.update_job(job_id, status=JobStatus.error, error=str(e))
-        raise
-    finally:
-        tmp_path.unlink(missing_ok=True)
+            result = audio_chain.ffmpeg_concat_files(wav_paths, fmt)
+            storage.update_job(
+                job_id,
+                status=JobStatus.done,
+                progress=100,
+                result_bytes=result,
+                partial_bytes=None,
+            )
+        except Exception as e:
+            storage.update_job(job_id, status=JobStatus.error, error=str(e))
+            raise
+        finally:
+            tmp_path.unlink(missing_ok=True)
 
 
 @router.post("/upload", status_code=202)

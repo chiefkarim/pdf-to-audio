@@ -76,6 +76,34 @@ def process_and_export(
     return encode(apply_dsp(segments, sample_rate), sample_rate, fmt)
 
 
+def ffmpeg_concat_files(wav_paths: list[Path], fmt: ExportFormat) -> bytes:
+    """Concatenate on-disk WAV files via ffmpeg without loading them into Python memory."""
+    if not wav_paths:
+        return b""
+    if len(wav_paths) == 1 and fmt == ExportFormat.wav:
+        return wav_paths[0].read_bytes()
+    codec_args = (
+        ["-c", "copy"] if fmt == ExportFormat.wav
+        else ["-c:a", "libmp3lame", "-b:a", "192k"]
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        tmpdir = Path(tmp)
+        filelist = tmpdir / "filelist.txt"
+        filelist.write_text("\n".join(f"file '{p}'" for p in wav_paths))
+        out = tmpdir / f"out.{fmt.value}"
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(filelist),
+             *codec_args, str(out)],
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"ffmpeg exited {result.returncode}: "
+                f"{result.stderr.decode(errors='replace')}"
+            )
+        return out.read_bytes()
+
+
 def ffmpeg_concat(chunks: list[bytes], fmt: ExportFormat) -> bytes:
     """Concatenate WAV chunks via ffmpeg, encoding to fmt in one pass."""
     if not chunks:

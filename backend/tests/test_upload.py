@@ -27,7 +27,7 @@ def patch_services(monkeypatch):
         lambda *a, **k: b"FAKE_WAV",
     )
     monkeypatch.setattr(
-        "app.routers.upload.audio_chain.ffmpeg_concat",
+        "app.routers.upload.audio_chain.ffmpeg_concat_files",
         lambda *a, **k: b"FAKE_AUDIO",
     )
 

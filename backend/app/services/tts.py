@@ -1,3 +1,4 @@
+import os
 import re
 import functools
 import concurrent.futures
@@ -107,7 +108,8 @@ def synthesise(sentence: str, mode: TtsMode = TtsMode.fast) -> np.ndarray:
 
 
 def make_executor(mode: TtsMode) -> concurrent.futures.ThreadPoolExecutor:
-    return concurrent.futures.ThreadPoolExecutor(max_workers=2)
+    workers = max(2, (os.cpu_count() or 4) - 1)
+    return concurrent.futures.ThreadPoolExecutor(max_workers=workers)
 
 
 def synthesise_parallel(
