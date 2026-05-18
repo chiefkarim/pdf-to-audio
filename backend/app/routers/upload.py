@@ -47,7 +47,6 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
         ocr_thread.start()
 
         dsp_cache: list[np.ndarray] = []
-        new_segments: list[np.ndarray] = []
         pages_processed = 0
         ocr_count = 0
         sample_rate = tts.get_sample_rate(mode)
@@ -69,9 +68,7 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
 
                 if sentences:
                     segments = tts.synthesise_parallel(sentences, mode=mode, executor=executor)
-                    processed = audio_chain.apply_dsp(segments, sample_rate)
-                    dsp_cache.extend(processed)
-                    new_segments.extend(processed)
+                    dsp_cache.extend(audio_chain.apply_dsp(segments, sample_rate))
 
                 if is_ocr:
                     ocr_count += 1
@@ -80,9 +77,8 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
                 progress = int(100 * pages_processed / total_pages)
 
                 update: dict = dict(pages_done=pages_processed, ocr_pages=ocr_count, progress=progress)
-                if pages_processed % PARTIAL_EVERY == 0:
-                    update["partial_bytes"] = audio_chain.encode(new_segments, sample_rate, fmt)
-                    new_segments.clear()
+                if pages_processed % PARTIAL_EVERY == 0 and dsp_cache:
+                    update["partial_bytes"] = audio_chain.encode(dsp_cache, sample_rate, fmt)
 
                 storage.update_job(job_id, **update)
 

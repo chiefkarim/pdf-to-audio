@@ -100,7 +100,7 @@ def synthesise(sentence: str, mode: TtsMode = TtsMode.fast) -> np.ndarray:
     with torch.no_grad():
         for c in chunks:
             inputs = tokenizer(text=c, return_tensors="pt")
-            waveform = model(**inputs).waveform.squeeze(0).detach().numpy().astype(np.float32)
+            waveform = model(**inputs).waveform.squeeze(0).detach().numpy().astype(np.float32, copy=True)
             del inputs
             arrays.append(waveform)
     return np.concatenate(arrays) if arrays else np.array([], dtype=np.float32)
