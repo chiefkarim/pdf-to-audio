@@ -108,7 +108,7 @@ def synthesise(sentence: str, mode: TtsMode = TtsMode.fast) -> np.ndarray:
 
 
 def make_executor(mode: TtsMode) -> concurrent.futures.ThreadPoolExecutor:
-    workers = max(2, (os.cpu_count() or 4) - 1)
+    workers = min(8, max(2, (os.cpu_count() or 4) - 1))
     return concurrent.futures.ThreadPoolExecutor(max_workers=workers)
 
 

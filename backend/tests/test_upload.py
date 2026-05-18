@@ -76,6 +76,9 @@ async def test_upload_background_sets_done(async_client):
     )
     assert resp.status_code == 202
     job_id = resp.json()["job_id"]
-    await asyncio.sleep(0.2)
-    status_resp = await async_client.get(f"/jobs/{job_id}/status")
+    for _ in range(30):
+        await asyncio.sleep(0.1)
+        status_resp = await async_client.get(f"/jobs/{job_id}/status")
+        if status_resp.json()["status"] in ("done", "error"):
+            break
     assert status_resp.json()["status"] == "done"

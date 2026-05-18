@@ -106,7 +106,10 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
                 partial_bytes=None,
             )
         except Exception as e:
-            storage.update_job(job_id, status=JobStatus.error, error=str(e))
+            try:
+                storage.update_job(job_id, status=JobStatus.error, error=str(e))
+            except Exception:
+                pass
             raise
         finally:
             tmp_path.unlink(missing_ok=True)
