@@ -1,3 +1,4 @@
+import gc
 import logging
 import os
 import queue
@@ -16,13 +17,24 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _rss_mb() -> int:
+    try:
+        with open("/proc/self/status") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) // 1024
+    except Exception:
+        pass
+    return 0
+
+
 def _get_max_bytes() -> int:
     raw = os.environ.get("MAX_UPLOAD_MB", "50")
     return int(raw) * 1024 * 1024
 
 
 def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode) -> None:
-    logger.info("job %s started: format=%s mode=%s", job_id, fmt, mode)
+    logger.info("job %s started: format=%s mode=%s", job_id, fmt.value, mode.value)
     with tempfile.TemporaryDirectory() as page_dir_str:
         page_dir = Path(page_dir_str)
         try:
@@ -76,11 +88,15 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
                         segments = tts.synthesise_parallel(sentences, mode=mode, executor=executor)
                         logger.debug("job %s: page %d TTS done, %d segments", job_id, pages_processed + 1, len(segments))
                         dsp = audio_chain.apply_dsp(segments, sample_rate)
+                        del segments
                         if dsp:
                             wav_path = page_dir / f"{pages_processed:06d}.wav"
                             wav_path.write_bytes(audio_chain.encode(dsp, sample_rate, ExportFormat.wav))
                             wav_paths.append(wav_path)
                             logger.debug("job %s: page %d encoded to disk", job_id, pages_processed + 1)
+                        del dsp
+
+                    gc.collect()
 
                     if is_ocr:
                         ocr_count += 1
@@ -88,6 +104,7 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
                     pages_processed += 1
                     progress = int(100 * pages_processed / total_pages)
 
+                    logger.info("job %s: page %d/%d done rss=%dMB", job_id, pages_processed, total_pages, _rss_mb())
                     update: dict = dict(pages_done=pages_processed, ocr_pages=ocr_count, progress=progress)
                     if pages_processed % PARTIAL_EVERY == 0 and wav_paths:
                         try:
@@ -152,7 +169,7 @@ async def upload_pdf(
 
     filename = file.filename or ""
     job_id = storage.create_job(format, filename=filename, mode=mode)
-    logger.info("upload accepted: job=%s file=%r size=%d format=%s mode=%s", job_id, filename, total_size, format, mode)
+    logger.info("upload accepted: job=%s file=%r size=%d format=%s mode=%s", job_id, filename, total_size, format.value, mode.value)
 
     background_tasks.add_task(_run_pipeline, job_id, tmp_path, format, mode)
 
