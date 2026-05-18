@@ -6,6 +6,7 @@ from app.models.schemas import ExportFormat, JobStatus
 from app.storage import (
     create_job,
     get_job,
+    get_job_status,
     list_jobs,
     pause_job,
     resume_job,
@@ -103,3 +104,57 @@ def test_pause_unknown_raises_key_error() -> None:
 def test_resume_unknown_raises_key_error() -> None:
     with pytest.raises(KeyError):
         resume_job("00000000-0000-0000-0000-000000000000")
+
+
+def test_get_job_status_unknown_returns_none() -> None:
+    assert get_job_status("00000000-0000-0000-0000-000000000000") is None
+
+
+def test_get_job_status_returns_correct_fields() -> None:
+    job_id = create_job(ExportFormat.mp3)
+    update_job(job_id, status=JobStatus.processing, progress=42)
+    result = get_job_status(job_id)
+    assert result is not None
+    assert result.job_id == job_id
+    assert result.status == JobStatus.processing
+    assert result.progress == 42
+
+
+def test_get_job_status_does_not_load_result_bytes() -> None:
+    job_id = create_job(ExportFormat.mp3)
+    update_job(job_id, status=JobStatus.done, progress=100, result_bytes=b"audio")
+    result = get_job_status(job_id)
+    assert result is not None
+    assert result.result_bytes is None
+
+
+def test_list_jobs_omits_result_bytes() -> None:
+    job_id = create_job(ExportFormat.mp3)
+    update_job(job_id, status=JobStatus.done, progress=100, result_bytes=b"audio")
+    jobs = list_jobs()
+    match = next(j for j in jobs if j.job_id == job_id)
+    assert match.result_bytes is None
+
+
+def test_list_jobs_omits_partial_bytes() -> None:
+    job_id = create_job(ExportFormat.mp3)
+    update_job(job_id, status=JobStatus.processing, partial_bytes=b"chunk")
+    jobs = list_jobs()
+    match = next(j for j in jobs if j.job_id == job_id)
+    assert match.partial_bytes is None
+
+
+def test_update_job_done_removes_pause_event() -> None:
+    from app import storage
+    job_id = create_job(ExportFormat.mp3)
+    assert job_id in storage._pause_events
+    update_job(job_id, status=JobStatus.done)
+    assert job_id not in storage._pause_events
+
+
+def test_update_job_error_removes_pause_event() -> None:
+    from app import storage
+    job_id = create_job(ExportFormat.mp3)
+    assert job_id in storage._pause_events
+    update_job(job_id, status=JobStatus.error, error="x")
+    assert job_id not in storage._pause_events
