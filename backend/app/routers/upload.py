@@ -6,7 +6,7 @@ import numpy as np
 from fastapi import APIRouter, BackgroundTasks, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
-from app.models.schemas import ExportFormat, JobStatus
+from app.models.schemas import ExportFormat, JobStatus, TtsMode
 from app.services import audio_chain, ocr, tts
 from app import storage
 
@@ -18,7 +18,7 @@ def _get_max_bytes() -> int:
     return int(raw) * 1024 * 1024
 
 
-def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat) -> None:
+def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode) -> None:
     try:
         storage.update_job(job_id, status=JobStatus.processing, progress=0)
 
@@ -44,24 +44,19 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat) -> None:
         partial: bytes = b""
         pages_processed = 0
 
-        for page_idx, sentences in non_empty_pages:
+        for _, sentences in non_empty_pages:
             # Pause check before each page
             event = storage.get_pause_event(job_id)
             if event:
                 event.wait()
 
-            for sentence in sentences:
-                # Pause check before each sentence
-                event = storage.get_pause_event(job_id)
-                if event:
-                    event.wait()
-                segment = tts.synthesise(sentence)
-                all_segments.append(segment)
+            segments = tts.synthesise_parallel(sentences, mode=mode)
+            all_segments.extend(segments)
 
             pages_processed += 1
 
             # Re-export full accumulated audio so partial is always valid
-            partial = audio_chain.process_and_export(all_segments, tts.get_sample_rate(), fmt)
+            partial = audio_chain.process_and_export(all_segments, tts.get_sample_rate(mode), fmt)
             progress = int(100 * pages_processed / len(non_empty_pages))
 
             storage.update_job(
@@ -89,6 +84,7 @@ async def upload_pdf(
     file: UploadFile,
     background_tasks: BackgroundTasks,
     format: ExportFormat = Form(ExportFormat.mp3),
+    mode: TtsMode = Form(TtsMode.fast),
 ) -> JSONResponse:
     max_bytes = _get_max_bytes()
 
@@ -108,11 +104,11 @@ async def upload_pdf(
         tmp_path = Path(tmp.name)
 
     filename = file.filename or ""
-    job_id = storage.create_job(format, filename=filename)
+    job_id = storage.create_job(format, filename=filename, mode=mode)
 
-    background_tasks.add_task(_run_pipeline, job_id, tmp_path, format)
+    background_tasks.add_task(_run_pipeline, job_id, tmp_path, format, mode)
 
     return JSONResponse(
         status_code=202,
-        content={"job_id": job_id, "status": "queued"},
+        content={"job_id": job_id, "status": "queued", "mode": mode},
     )

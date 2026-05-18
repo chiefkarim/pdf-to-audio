@@ -3,9 +3,12 @@ uvicorn[standard]==0.30.*
 python-multipart==0.0.*
 pytesseract==0.3.*
 pdf2image==1.17.*
+pymupdf>=1.24.0
 TTS==0.22.*
 torch==2.5.1
 torchaudio==2.5.1
+transformers>=4.41.0
+scipy>=1.13.0
 pedalboard==0.9.*
 soundfile==0.12.*
 pydub==0.25.*

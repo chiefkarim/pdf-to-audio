@@ -18,8 +18,19 @@ WORKDIR /app
 COPY requirements.txt .
 RUN uv pip install --system --no-cache -r requirements.txt
 
+# Cache paths for HuggingFace models (set before any pre-bake RUN so both
+# build-time downloads and runtime inference use the same location)
+ENV TRANSFORMERS_CACHE=/opt/hf_cache
+ENV HF_HOME=/opt/hf_cache
+
 # Pre-download Coqui TTS model at build time so runtime is fully offline
 RUN python -c "from TTS.api import TTS; TTS('tts_models/en/ljspeech/tacotron2-DDC', gpu=False)"
+
+# Pre-download MMS-TTS model for fast-mode inference
+RUN python -c "\
+from transformers import VitsModel, AutoTokenizer; \
+VitsModel.from_pretrained('facebook/mms-tts-eng'); \
+AutoTokenizer.from_pretrained('facebook/mms-tts-eng')"
 
 # Copy app source
 COPY app/ ./app/

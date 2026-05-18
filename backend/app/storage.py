@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from app.models.schemas import ExportFormat, Job, JobStatus
+from app.models.schemas import ExportFormat, Job, JobStatus, TtsMode
 
 _db_path: str = os.environ.get("DB_PATH", "jobs.db")
 _conn: sqlite3.Connection = sqlite3.connect(_db_path, check_same_thread=False, isolation_level=None)
@@ -30,7 +30,8 @@ def init_db() -> None:
                 pages_total   INTEGER NOT NULL DEFAULT 0,
                 pages_done    INTEGER NOT NULL DEFAULT 0,
                 partial_bytes BLOB,
-                filename      TEXT NOT NULL DEFAULT ''
+                filename      TEXT NOT NULL DEFAULT '',
+                mode          TEXT NOT NULL DEFAULT 'fast'
             )
             """
         )
@@ -40,6 +41,7 @@ def init_db() -> None:
             ("pages_done", "INTEGER NOT NULL DEFAULT 0"),
             ("partial_bytes", "BLOB"),
             ("filename", "TEXT NOT NULL DEFAULT ''"),
+            ("mode", "TEXT NOT NULL DEFAULT 'fast'"),
         ]:
             try:
                 _conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} {definition}")
@@ -58,7 +60,7 @@ def init_db() -> None:
 
 
 def _row_to_job(row: tuple) -> Job:
-    job_id, status, progress, fmt, result_bytes, error, created_at, pages_total, pages_done, partial_bytes, filename = row
+    job_id, status, progress, fmt, result_bytes, error, created_at, pages_total, pages_done, partial_bytes, filename, mode = row
     return Job(
         job_id=job_id,
         status=JobStatus(status),
@@ -71,18 +73,19 @@ def _row_to_job(row: tuple) -> Job:
         pages_done=pages_done or 0,
         partial_bytes=partial_bytes,
         filename=filename or "",
+        mode=TtsMode(mode),
     )
 
 
-def create_job(fmt: ExportFormat, filename: str = "") -> str:
+def create_job(fmt: ExportFormat, filename: str = "", mode: TtsMode = TtsMode.fast) -> str:
     job_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
     event = threading.Event()
     event.set()
     with _lock:
         _conn.execute(
-            "INSERT INTO jobs (job_id, status, progress, format, created_at, filename) VALUES (?, ?, ?, ?, ?, ?)",
-            (job_id, JobStatus.queued.value, 0, fmt.value, created_at, filename),
+            "INSERT INTO jobs (job_id, status, progress, format, created_at, filename, mode) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (job_id, JobStatus.queued.value, 0, fmt.value, created_at, filename, mode.value),
         )
         _pause_events[job_id] = event
     return job_id
@@ -93,7 +96,7 @@ def get_job(job_id: str) -> Optional[Job]:
         row = _conn.execute(
             """
             SELECT job_id, status, progress, format, result_bytes, error, created_at,
-                   pages_total, pages_done, partial_bytes, filename
+                   pages_total, pages_done, partial_bytes, filename, mode
             FROM jobs WHERE job_id = ?
             """,
             (job_id,),
@@ -132,7 +135,7 @@ def list_jobs() -> list[Job]:
         rows = _conn.execute(
             """
             SELECT job_id, status, progress, format, result_bytes, error, created_at,
-                   pages_total, pages_done, partial_bytes, filename
+                   pages_total, pages_done, partial_bytes, filename, mode
             FROM jobs ORDER BY created_at DESC
             """
         ).fetchall()

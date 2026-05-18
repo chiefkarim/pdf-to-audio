@@ -14,6 +14,10 @@ class JobStatus(str, Enum):
     done = "done"
     error = "error"
 
+class TtsMode(str, Enum):
+    fast = "fast"
+    quality = "quality"
+
 class Job(BaseModel):
     job_id: str
     status: JobStatus
@@ -26,3 +30,4 @@ class Job(BaseModel):
     pages_done: int = 0
     partial_bytes: Optional[bytes] = None
     filename: str = ""
+    mode: TtsMode = TtsMode.fast
