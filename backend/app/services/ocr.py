@@ -37,6 +37,7 @@ def stream_pages(pdf_path: Path) -> Iterator[tuple[int, list[str], bool]]:
                     "RGB", [pixmap.width, pixmap.height], pixmap.samples
                 )
                 text = pytesseract.image_to_string(image)
+                del image, pixmap
                 is_ocr = True
             logger.debug(
                 "page %d: extraction=%s chars=%d",

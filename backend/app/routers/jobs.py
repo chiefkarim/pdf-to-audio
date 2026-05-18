@@ -39,7 +39,7 @@ def list_jobs() -> list[dict]:
 
 @router.get("/{job_id}/status")
 def get_status(job_id: str) -> dict:
-    job = storage.get_job(job_id)
+    job = storage.get_job_status(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
     return {"job_id": job.job_id, "status": job.status, "progress": job.progress}
@@ -60,11 +60,13 @@ def download(job_id: str) -> StreamingResponse:
     ext = _EXTENSIONS[job.format]
     media_type = _MEDIA_TYPES[job.format]
 
-    return StreamingResponse(
+    response = StreamingResponse(
         BytesIO(job.result_bytes),
         media_type=media_type,
         headers={"Content-Disposition": f"attachment; filename=\"audio.{ext}\""},
     )
+    storage.update_job(job_id, result_bytes=None, partial_bytes=None)
+    return response
 
 
 @router.get("/{job_id}/partial")
@@ -87,7 +89,7 @@ def partial_download(job_id: str) -> StreamingResponse:
 
 @router.post("/{job_id}/pause")
 def pause_job(job_id: str) -> dict:
-    job = storage.get_job(job_id)
+    job = storage.get_job_status(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
     if job.status != JobStatus.processing:
@@ -98,7 +100,7 @@ def pause_job(job_id: str) -> dict:
 
 @router.post("/{job_id}/resume")
 def resume_job(job_id: str) -> dict:
-    job = storage.get_job(job_id)
+    job = storage.get_job_status(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
     if job.status != JobStatus.paused:

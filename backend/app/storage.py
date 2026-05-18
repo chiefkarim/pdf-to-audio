@@ -132,18 +132,65 @@ def update_job(job_id: str, **kwargs) -> None:
         )
         if cursor.rowcount == 0:
             raise KeyError(job_id)
+        if kwargs.get("status") in (JobStatus.done, JobStatus.done.value, JobStatus.error, JobStatus.error.value):
+            _pause_events.pop(job_id, None)
+
+
+def _row_to_job_slim(row: tuple) -> Job:
+    job_id, status, progress, fmt, error, created_at, pages_total, pages_done, filename, mode, ocr_pages = row
+    return Job(
+        job_id=job_id,
+        status=JobStatus(status),
+        progress=progress,
+        format=ExportFormat(fmt),
+        result_bytes=None,
+        error=error,
+        created_at=datetime.fromisoformat(created_at),
+        pages_total=pages_total or 0,
+        pages_done=pages_done or 0,
+        partial_bytes=None,
+        filename=filename or "",
+        mode=TtsMode(mode),
+        ocr_pages=ocr_pages or 0,
+    )
 
 
 def list_jobs() -> list[Job]:
     with _lock:
         rows = _conn.execute(
             """
-            SELECT job_id, status, progress, format, result_bytes, error, created_at,
-                   pages_total, pages_done, partial_bytes, filename, mode, ocr_pages
+            SELECT job_id, status, progress, format, error, created_at,
+                   pages_total, pages_done, filename, mode, ocr_pages
             FROM jobs ORDER BY created_at DESC
             """
         ).fetchall()
-    return [_row_to_job(row) for row in rows]
+    return [_row_to_job_slim(row) for row in rows]
+
+
+def get_job_status(job_id: str) -> Optional[Job]:
+    with _lock:
+        row = _conn.execute(
+            "SELECT job_id, status, progress FROM jobs WHERE job_id = ?",
+            (job_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    job_id_, status, progress = row
+    return Job(
+        job_id=job_id_,
+        status=JobStatus(status),
+        progress=progress,
+        format=ExportFormat.mp3,
+        result_bytes=None,
+        error=None,
+        created_at=datetime.now(timezone.utc),
+        pages_total=0,
+        pages_done=0,
+        partial_bytes=None,
+        filename="",
+        mode=TtsMode.fast,
+        ocr_pages=0,
+    )
 
 
 def get_pause_event(job_id: str) -> Optional[threading.Event]:
