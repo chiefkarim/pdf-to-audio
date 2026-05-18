@@ -19,6 +19,11 @@ router = APIRouter()
 
 _active_wav_paths: dict[str, list[Path]] = {}
 
+try:
+    _libc = ctypes.CDLL("libc.so.6")
+except Exception:
+    _libc = None
+
 
 def _rss_mb() -> int:
     try:
@@ -100,10 +105,8 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
                         del dsp
 
                     gc.collect()
-                    try:
-                        ctypes.CDLL("libc.so.6").malloc_trim(0)
-                    except Exception:
-                        pass
+                    if _libc is not None:
+                        _libc.malloc_trim(0)
 
                     if is_ocr:
                         ocr_count += 1

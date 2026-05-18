@@ -11,6 +11,8 @@ from app.models.schemas import TtsMode
 
 logger = logging.getLogger(__name__)
 
+torch.backends.mkldnn.enabled = False
+
 _QUALITY_MODEL = "tts_models/en/ljspeech/tacotron2-DDC"
 _FAST_MODEL_ID = "facebook/mms-tts-eng"
 _MAX_CHARS = 150
@@ -39,7 +41,6 @@ def _get_fast_model() -> tuple[VitsModel, AutoTokenizer]:
         logger.info("loading fast TTS model: %s", _FAST_MODEL_ID)
         tokenizer = AutoTokenizer.from_pretrained(_FAST_MODEL_ID)
         model = VitsModel.from_pretrained(_FAST_MODEL_ID)
-        torch.backends.mkldnn.enabled = False
         _fast_tokenizer, _fast_model = tokenizer, model
         logger.info("fast TTS model loaded")
     return _fast_model, _fast_tokenizer
@@ -117,7 +118,10 @@ def synthesise(sentence: str, mode: TtsMode = TtsMode.fast) -> np.ndarray:
 
 
 def _worker_init() -> None:
-    torch.set_num_threads(1)
+    try:
+        torch.set_num_threads(1)
+    except Exception:
+        logger.warning("torch.set_num_threads(1) failed in worker", exc_info=True)
 
 
 def make_executor(mode: TtsMode) -> concurrent.futures.ThreadPoolExecutor:
