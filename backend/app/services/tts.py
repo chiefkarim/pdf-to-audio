@@ -118,7 +118,6 @@ def synthesise(sentence: str, mode: TtsMode = TtsMode.fast) -> np.ndarray:
 
 def _worker_init() -> None:
     torch.set_num_threads(1)
-    torch.set_num_interop_threads(1)
 
 
 def make_executor(mode: TtsMode) -> concurrent.futures.ThreadPoolExecutor:
