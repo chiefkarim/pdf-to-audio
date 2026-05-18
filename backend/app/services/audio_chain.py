@@ -1,5 +1,8 @@
 import logging
+import subprocess
+import tempfile
 from io import BytesIO
+from pathlib import Path
 
 import numpy as np
 import soundfile as sf
@@ -71,3 +74,29 @@ def process_and_export(
     fmt: ExportFormat,
 ) -> bytes:
     return encode(apply_dsp(segments, sample_rate), sample_rate, fmt)
+
+
+def ffmpeg_concat(chunks: list[bytes], fmt: ExportFormat) -> bytes:
+    """Concatenate pre-encoded audio chunks via ffmpeg -c copy (no re-encoding)."""
+    if not chunks:
+        return b""
+    if len(chunks) == 1:
+        return chunks[0]
+    ext = fmt.value
+    with tempfile.TemporaryDirectory() as tmp:
+        tmpdir = Path(tmp)
+        paths = []
+        for i, chunk in enumerate(chunks):
+            p = tmpdir / f"{i:06d}.{ext}"
+            p.write_bytes(chunk)
+            paths.append(p)
+        filelist = tmpdir / "filelist.txt"
+        filelist.write_text("\n".join(f"file '{p}'" for p in paths))
+        out = tmpdir / f"out.{ext}"
+        subprocess.run(
+            ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(filelist),
+             "-c", "copy", str(out)],
+            check=True,
+            capture_output=True,
+        )
+        return out.read_bytes()
