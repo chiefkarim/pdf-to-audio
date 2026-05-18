@@ -31,7 +31,8 @@ def init_db() -> None:
                 pages_done    INTEGER NOT NULL DEFAULT 0,
                 partial_bytes BLOB,
                 filename      TEXT NOT NULL DEFAULT '',
-                mode          TEXT NOT NULL DEFAULT 'fast'
+                mode          TEXT NOT NULL DEFAULT 'fast',
+                ocr_pages     INTEGER NOT NULL DEFAULT 0
             )
             """
         )
@@ -42,6 +43,7 @@ def init_db() -> None:
             ("partial_bytes", "BLOB"),
             ("filename", "TEXT NOT NULL DEFAULT ''"),
             ("mode", "TEXT NOT NULL DEFAULT 'fast'"),
+            ("ocr_pages", "INTEGER NOT NULL DEFAULT 0"),
         ]:
             try:
                 _conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} {definition}")
@@ -61,7 +63,7 @@ def init_db() -> None:
 
 
 def _row_to_job(row: tuple) -> Job:
-    job_id, status, progress, fmt, result_bytes, error, created_at, pages_total, pages_done, partial_bytes, filename, mode = row
+    job_id, status, progress, fmt, result_bytes, error, created_at, pages_total, pages_done, partial_bytes, filename, mode, ocr_pages = row
     return Job(
         job_id=job_id,
         status=JobStatus(status),
@@ -75,6 +77,7 @@ def _row_to_job(row: tuple) -> Job:
         partial_bytes=partial_bytes,
         filename=filename or "",
         mode=TtsMode(mode),
+        ocr_pages=ocr_pages or 0,
     )
 
 
@@ -97,7 +100,7 @@ def get_job(job_id: str) -> Optional[Job]:
         row = _conn.execute(
             """
             SELECT job_id, status, progress, format, result_bytes, error, created_at,
-                   pages_total, pages_done, partial_bytes, filename, mode
+                   pages_total, pages_done, partial_bytes, filename, mode, ocr_pages
             FROM jobs WHERE job_id = ?
             """,
             (job_id,),
@@ -110,7 +113,7 @@ def get_job(job_id: str) -> Optional[Job]:
 def update_job(job_id: str, **kwargs) -> None:
     if not kwargs:
         return
-    allowed = {"status", "progress", "result_bytes", "error", "pages_total", "pages_done", "partial_bytes", "filename"}
+    allowed = {"status", "progress", "result_bytes", "error", "pages_total", "pages_done", "partial_bytes", "filename", "ocr_pages"}
     sets = []
     values = []
     for field, value in kwargs.items():
@@ -136,7 +139,7 @@ def list_jobs() -> list[Job]:
         rows = _conn.execute(
             """
             SELECT job_id, status, progress, format, result_bytes, error, created_at,
-                   pages_total, pages_done, partial_bytes, filename, mode
+                   pages_total, pages_done, partial_bytes, filename, mode, ocr_pages
             FROM jobs ORDER BY created_at DESC
             """
         ).fetchall()

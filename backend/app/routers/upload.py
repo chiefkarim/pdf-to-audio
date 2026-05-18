@@ -1,5 +1,7 @@
 import os
+import queue
 import tempfile
+import threading
 from pathlib import Path
 
 import numpy as np
@@ -22,50 +24,71 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
     try:
         storage.update_job(job_id, status=JobStatus.processing, progress=0)
 
-        pages = ocr.extract_pages(tmp_path)
-
-        total_pages = len(pages)
-
+        total_pages = ocr.page_count(tmp_path)
         if total_pages == 0:
-            storage.update_job(job_id, status=JobStatus.error, error="No text found in PDF")
-            tmp_path.unlink(missing_ok=True)
-            return
-
-        # Filter out empty pages but keep total count accurate for non-empty ones
-        non_empty_pages = [(i, page) for i, page in enumerate(pages) if page]
-        if not non_empty_pages:
-            storage.update_job(job_id, status=JobStatus.error, error="No text found in PDF")
-            tmp_path.unlink(missing_ok=True)
+            storage.update_job(job_id, status=JobStatus.error, error="Empty PDF")
             return
 
         storage.update_job(job_id, pages_total=total_pages)
 
+        # Bounded queue — OCR thread stays at most 3 pages ahead of TTS consumer.
+        page_queue: queue.Queue = queue.Queue(maxsize=3)
+
+        def _ocr_producer() -> None:
+            try:
+                for page_idx, sentences, is_ocr in ocr.stream_pages(tmp_path):
+                    page_queue.put((page_idx, sentences, is_ocr))
+            except Exception as exc:
+                page_queue.put(exc)
+            finally:
+                page_queue.put(None)
+
+        ocr_thread = threading.Thread(target=_ocr_producer, daemon=True)
+        ocr_thread.start()
+
         all_segments: list[np.ndarray] = []
         partial: bytes = b""
         pages_processed = 0
+        ocr_count = 0
 
         with tts.make_executor(mode) as executor:
-            for _, sentences in non_empty_pages:
-                # Pause check before each page
+            while True:
+                item = page_queue.get()
+                if item is None:
+                    break
+                if isinstance(item, Exception):
+                    raise item
+
+                _, sentences, is_ocr = item
+
                 event = storage.get_pause_event(job_id)
                 if event:
                     event.wait()
 
-                segments = tts.synthesise_parallel(sentences, mode=mode, executor=executor)
-                all_segments.extend(segments)
+                if sentences:
+                    segments = tts.synthesise_parallel(sentences, mode=mode, executor=executor)
+                    all_segments.extend(segments)
+
+                if is_ocr:
+                    ocr_count += 1
 
                 pages_processed += 1
-
-                # Re-export full accumulated audio so partial is always valid
                 partial = audio_chain.process_and_export(all_segments, tts.get_sample_rate(mode), fmt)
-                progress = int(100 * pages_processed / len(non_empty_pages))
+                progress = int(100 * pages_processed / total_pages)
 
                 storage.update_job(
                     job_id,
                     pages_done=pages_processed,
+                    ocr_pages=ocr_count,
                     partial_bytes=partial,
                     progress=progress,
                 )
+
+        ocr_thread.join()
+
+        if not all_segments:
+            storage.update_job(job_id, status=JobStatus.error, error="No text found in PDF")
+            return
 
         storage.update_job(
             job_id,

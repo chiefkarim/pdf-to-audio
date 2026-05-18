@@ -562,6 +562,16 @@ body {
 .job-mode--fast    { background: rgba(91,106,240,0.15); color: #7b8ef5; }
 .job-mode--quality { background: rgba(52,201,123,0.12); color: #34c97b; }
 
+.job-ocr {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: rgba(250,180,50,0.13);
+  color: #f5c842;
+}
+
 .job-time {
   font-size: 0.75rem;
   color: var(--text-muted);

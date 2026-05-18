@@ -190,6 +190,7 @@ function buildJobRow(job) {
     el("span", { class: "job-badge job-badge--" + job.status }, job.status),
     el("span", { class: "job-format" }, job.format),
     job.mode ? el("span", { class: "job-mode job-mode--" + job.mode }, job.mode) : null,
+    job.ocr_pages > 0 ? el("span", { class: "job-ocr", title: job.ocr_pages + " page(s) needed OCR" }, "OCR ×" + job.ocr_pages) : null,
     job.filename ? el("span", { class: "job-filename", title: job.filename }, job.filename) : null,
     el("span", { class: "job-time" }, relative_time(job.created_at))
   );

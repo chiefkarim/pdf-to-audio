@@ -31,3 +31,4 @@ class Job(BaseModel):
     partial_bytes: Optional[bytes] = None
     filename: str = ""
     mode: TtsMode = TtsMode.fast
+    ocr_pages: int = 0
