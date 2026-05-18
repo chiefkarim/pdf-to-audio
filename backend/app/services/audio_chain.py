@@ -77,26 +77,33 @@ def process_and_export(
 
 
 def ffmpeg_concat(chunks: list[bytes], fmt: ExportFormat) -> bytes:
-    """Concatenate pre-encoded audio chunks via ffmpeg -c copy (no re-encoding)."""
+    """Concatenate WAV chunks via ffmpeg, encoding to fmt in one pass."""
     if not chunks:
         return b""
-    if len(chunks) == 1:
+    if len(chunks) == 1 and fmt == ExportFormat.wav:
         return chunks[0]
-    ext = fmt.value
+    codec_args = (
+        ["-c", "copy"] if fmt == ExportFormat.wav
+        else ["-c:a", "libmp3lame", "-b:a", "192k"]
+    )
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
         paths = []
         for i, chunk in enumerate(chunks):
-            p = tmpdir / f"{i:06d}.{ext}"
+            p = tmpdir / f"{i:06d}.wav"
             p.write_bytes(chunk)
             paths.append(p)
         filelist = tmpdir / "filelist.txt"
         filelist.write_text("\n".join(f"file '{p}'" for p in paths))
-        out = tmpdir / f"out.{ext}"
-        subprocess.run(
+        out = tmpdir / f"out.{fmt.value}"
+        result = subprocess.run(
             ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(filelist),
-             "-c", "copy", str(out)],
-            check=True,
+             *codec_args, str(out)],
             capture_output=True,
         )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"ffmpeg exited {result.returncode}: "
+                f"{result.stderr.decode(errors='replace')}"
+            )
         return out.read_bytes()

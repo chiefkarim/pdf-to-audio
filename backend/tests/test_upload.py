@@ -9,16 +9,25 @@ from app.main import app
 
 @pytest.fixture(autouse=True)
 def patch_services(monkeypatch):
+    monkeypatch.setattr("app.routers.upload.ocr.page_count", lambda p: 1)
     monkeypatch.setattr(
-        "app.routers.upload.ocr.extract_sentences",
-        lambda p: ["Hello world."],
+        "app.routers.upload.ocr.stream_pages",
+        lambda p: iter([(0, ["Hello world."], False)]),
     )
     monkeypatch.setattr(
-        "app.routers.upload.tts.synthesise",
-        lambda s: np.zeros(22050, dtype=np.float32),
+        "app.routers.upload.tts.synthesise_parallel",
+        lambda sentences, mode, executor: [np.zeros(22050, dtype=np.float32)],
     )
     monkeypatch.setattr(
-        "app.routers.upload.audio_chain.process_and_export",
+        "app.routers.upload.audio_chain.apply_dsp",
+        lambda segments, sr: segments,
+    )
+    monkeypatch.setattr(
+        "app.routers.upload.audio_chain.encode",
+        lambda *a, **k: b"FAKE_WAV",
+    )
+    monkeypatch.setattr(
+        "app.routers.upload.audio_chain.ffmpeg_concat",
         lambda *a, **k: b"FAKE_AUDIO",
     )
 

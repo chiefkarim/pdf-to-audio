@@ -1,3 +1,4 @@
+import logging
 import os
 import queue
 import tempfile
@@ -11,6 +12,7 @@ from app.models.schemas import ExportFormat, JobStatus, TtsMode
 from app.services import audio_chain, ocr, tts
 from app import storage
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -69,7 +71,7 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
                     segments = tts.synthesise_parallel(sentences, mode=mode, executor=executor)
                     dsp = audio_chain.apply_dsp(segments, sample_rate)
                     if dsp:
-                        page_chunks.append(audio_chain.encode(dsp, sample_rate, fmt))
+                        page_chunks.append(audio_chain.encode(dsp, sample_rate, ExportFormat.wav))
 
                 if is_ocr:
                     ocr_count += 1
@@ -79,7 +81,10 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
 
                 update: dict = dict(pages_done=pages_processed, ocr_pages=ocr_count, progress=progress)
                 if pages_processed % PARTIAL_EVERY == 0 and page_chunks:
-                    update["partial_bytes"] = audio_chain.ffmpeg_concat(page_chunks, fmt)
+                    try:
+                        update["partial_bytes"] = audio_chain.ffmpeg_concat(page_chunks, fmt)
+                    except Exception:
+                        logger.warning("partial audio generation failed at page %d", pages_processed)
 
                 storage.update_job(job_id, **update)
 
