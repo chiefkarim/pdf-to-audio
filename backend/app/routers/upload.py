@@ -1,3 +1,4 @@
+import ctypes
 import gc
 import logging
 import os
@@ -15,6 +16,8 @@ from app import storage
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+_active_wav_paths: dict[str, list[Path]] = {}
 
 
 def _rss_mb() -> int:
@@ -64,10 +67,10 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
             logger.info("job %s: OCR thread started", job_id)
 
             wav_paths: list[Path] = []
+            _active_wav_paths[job_id] = wav_paths
             pages_processed = 0
             ocr_count = 0
             sample_rate = tts.get_sample_rate(mode)
-            PARTIAL_EVERY = 5
 
             with tts.make_executor(mode) as executor:
                 while True:
@@ -97,6 +100,10 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
                         del dsp
 
                     gc.collect()
+                    try:
+                        ctypes.CDLL("libc.so.6").malloc_trim(0)
+                    except Exception:
+                        pass
 
                     if is_ocr:
                         ocr_count += 1
@@ -106,13 +113,6 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
 
                     logger.info("job %s: page %d/%d done rss=%dMB", job_id, pages_processed, total_pages, _rss_mb())
                     update: dict = dict(pages_done=pages_processed, ocr_pages=ocr_count, progress=progress)
-                    if pages_processed % PARTIAL_EVERY == 0 and wav_paths:
-                        try:
-                            partial = audio_chain.ffmpeg_concat_files(wav_paths, fmt)
-                            logger.debug("job %s: partial audio at page %d (%d bytes)", job_id, pages_processed, len(partial))
-                            update["partial_bytes"] = partial
-                        except Exception:
-                            logger.warning("partial audio generation failed at page %d", pages_processed)
 
                     storage.update_job(job_id, **update)
 
@@ -140,6 +140,7 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
                 logger.exception("failed to mark job %s as error (original: %s); job may appear stuck", job_id, e)
             raise
         finally:
+            _active_wav_paths.pop(job_id, None)
             tmp_path.unlink(missing_ok=True)
 
 

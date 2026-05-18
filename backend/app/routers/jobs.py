@@ -1,3 +1,4 @@
+import logging
 from io import BytesIO
 
 from fastapi import APIRouter, HTTPException
@@ -5,6 +6,9 @@ from fastapi.responses import StreamingResponse
 
 from app.models.schemas import ExportFormat, JobStatus
 from app import storage
+from app.services import audio_chain
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/jobs")
 
@@ -71,17 +75,28 @@ def download(job_id: str) -> StreamingResponse:
 
 @router.get("/{job_id}/partial")
 def partial_download(job_id: str) -> StreamingResponse:
+    from app.routers.upload import _active_wav_paths
+
     job = storage.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
-    if job.pages_done == 0 or job.partial_bytes is None:
+
+    wav_snapshot = list(_active_wav_paths.get(job_id, []))
+    if wav_snapshot:
+        try:
+            data = audio_chain.ffmpeg_concat_files(wav_snapshot, job.format)
+        except Exception:
+            logger.warning("on-demand partial concat failed for job %s", job_id)
+            raise HTTPException(status_code=500, detail="Failed to generate partial audio")
+    elif job.partial_bytes:
+        data = job.partial_bytes
+    else:
         raise HTTPException(status_code=409, detail="No partial audio available yet")
 
     ext = _EXTENSIONS[job.format]
     media_type = _MEDIA_TYPES[job.format]
-
     return StreamingResponse(
-        BytesIO(job.partial_bytes),
+        BytesIO(data),
         media_type=media_type,
         headers={"Content-Disposition": f"attachment; filename=\"audio_partial.{ext}\""},
     )
