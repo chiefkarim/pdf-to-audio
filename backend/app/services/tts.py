@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 torch.backends.mkldnn.enabled = False
 
 _QUALITY_MODEL_FEMALE = "tts_models/en/ljspeech/tacotron2-DDC"
-_QUALITY_MODEL_MALE = "ylacombe/vits_ljs_irish_male"
+_QUALITY_MODEL_MALE = "kakao-enterprise/vits-vctk"
+_QUALITY_MALE_SPEAKER_ID = 43  # p226 — male, Southern England, neutral RP
 _FAST_MODEL_ID = "facebook/mms-tts-eng"
 _MAX_CHARS = 150
 _MAX_CHARS_FAST = 200
@@ -48,7 +49,7 @@ def _get_quality_tts() -> TTS:
 def _get_quality_male_model() -> tuple[VitsModel, AutoTokenizer]:
     global _quality_male_model, _quality_male_tokenizer
     if _quality_male_model is None or _quality_male_tokenizer is None:
-        logger.info("loading quality male TTS model: %s", _QUALITY_MODEL_MALE)
+        logger.info("loading quality male TTS model: %s (speaker %d)", _QUALITY_MODEL_MALE, _QUALITY_MALE_SPEAKER_ID)
         tokenizer = AutoTokenizer.from_pretrained(_QUALITY_MODEL_MALE)
         model = VitsModel.from_pretrained(_QUALITY_MODEL_MALE)
         _quality_male_tokenizer, _quality_male_model = tokenizer, model
@@ -124,12 +125,18 @@ def _chunk_fast(text: str) -> list[str]:
     return [text[i:i + _MAX_CHARS_FAST] for i in range(0, len(text), _MAX_CHARS_FAST)]
 
 
-def _synthesise_vits(chunks: list[str], model: VitsModel, tokenizer: AutoTokenizer) -> np.ndarray:
+def _synthesise_vits(
+    chunks: list[str],
+    model: VitsModel,
+    tokenizer: AutoTokenizer,
+    speaker_id: int | None = None,
+) -> np.ndarray:
     arrays: list[np.ndarray] = []
+    sid = torch.tensor(speaker_id) if speaker_id is not None else None
     with torch.inference_mode():
         for c in chunks:
             inputs = tokenizer(text=c, return_tensors="pt")
-            output = model(**inputs)
+            output = model(**inputs) if sid is None else model(**inputs, speaker_id=sid)
             wav = output.waveform.squeeze(0).numpy().astype(np.float32, copy=True)
             del output, inputs
             arrays.append(wav)
@@ -148,7 +155,7 @@ def synthesise(
     if mode == TtsMode.quality:
         if voice == QualityVoice.male:
             model, tokenizer = _get_quality_male_model()
-            return _synthesise_vits(_chunk_fast(cleaned), model, tokenizer)
+            return _synthesise_vits(_chunk_fast(cleaned), model, tokenizer, speaker_id=_QUALITY_MALE_SPEAKER_ID)
 
         # female — Tacotron2, must be serialized
         chunks = [c for c in _chunk(cleaned) if len(c) >= _MIN_CHUNK_CHARS]
