@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import functools
+import threading
 import concurrent.futures
 import numpy as np
 import torch
@@ -25,14 +26,19 @@ _quality_tts: TTS | None = None
 _fast_model: VitsModel | None = None
 _fast_tokenizer: AutoTokenizer | None = None
 
+# Tacotron2 mutates decoder state (attention weights, context) in-place on the
+# model object — concurrent calls corrupt each other's alignment tensors.
+_quality_lock = threading.Lock()
 
 
 def _get_quality_tts() -> TTS:
     global _quality_tts
     if _quality_tts is None:
-        logger.info("loading quality TTS model: %s", _QUALITY_MODEL)
-        _quality_tts = TTS(_QUALITY_MODEL, gpu=False)
-        logger.info("quality TTS model loaded")
+        with _quality_lock:
+            if _quality_tts is None:
+                logger.info("loading quality TTS model: %s", _QUALITY_MODEL)
+                _quality_tts = TTS(_QUALITY_MODEL, gpu=False)
+                logger.info("quality TTS model loaded")
     return _quality_tts
 
 
@@ -114,7 +120,8 @@ def synthesise(sentence: str, mode: TtsMode = TtsMode.fast) -> np.ndarray:
         if not chunks:
             return np.array([], dtype=np.float32)
         tts = _get_quality_tts()
-        arrays = [np.array(tts.tts(text=c), dtype=np.float32) for c in chunks]
+        with _quality_lock:
+            arrays = [np.array(tts.tts(text=c), dtype=np.float32) for c in chunks]
         return np.concatenate(arrays) if arrays else np.array([], dtype=np.float32)
 
     # fast mode
