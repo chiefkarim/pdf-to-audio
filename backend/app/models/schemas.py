@@ -19,8 +19,10 @@ class TtsMode(str, Enum):
     quality = "quality"
 
 class QualityVoice(str, Enum):
-    male = "male"
-    female = "female"
+    ryan   = "ryan"    # p226 · male · Southern England
+    james  = "james"   # p227 · male · Midlands England (older, deeper)
+    marcus = "marcus"  # p298 · male · American
+    derek  = "derek"   # p311 · male · American
 
 class Job(BaseModel):
     job_id: str

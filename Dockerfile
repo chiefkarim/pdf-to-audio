@@ -22,9 +22,6 @@ RUN uv pip install --system --no-cache -r requirements.txt
 ENV TRANSFORMERS_CACHE=/opt/hf_cache
 ENV HF_HOME=/opt/hf_cache
 
-# Pre-download Coqui TTS model (quality female voice)
-RUN python -c "from TTS.api import TTS; TTS('tts_models/en/ljspeech/tacotron2-DDC', gpu=False)"
-
 # Pre-download MMS-TTS model (fast mode)
 RUN python -c "\
 from transformers import VitsModel, AutoTokenizer; \

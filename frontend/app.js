@@ -91,7 +91,7 @@ form.addEventListener("submit", async (e) => {
   const file   = fileInput.files[0];
   const format = form.querySelector("input[name='format']:checked").value;
   const mode   = form.querySelector("input[name='mode']:checked").value;
-  const voice  = form.querySelector("input[name='voice']:checked")?.value ?? "male";
+  const voice  = form.querySelector("input[name='voice']:checked")?.value ?? "ryan";
 
   if (!file) {
     showError("Please select a PDF file.");

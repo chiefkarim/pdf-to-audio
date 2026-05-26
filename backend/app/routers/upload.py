@@ -153,7 +153,7 @@ async def upload_pdf(
     background_tasks: BackgroundTasks,
     format: ExportFormat = Form(ExportFormat.mp3),
     mode: TtsMode = Form(TtsMode.fast),
-    voice: QualityVoice = Form(QualityVoice.male),
+    voice: QualityVoice = Form(QualityVoice.ryan),
 ) -> JSONResponse:
     max_bytes = _get_max_bytes()
 
