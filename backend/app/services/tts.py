@@ -132,11 +132,10 @@ def _synthesise_vits(
     speaker_id: int | None = None,
 ) -> np.ndarray:
     arrays: list[np.ndarray] = []
-    sid = torch.tensor(speaker_id) if speaker_id is not None else None
     with torch.inference_mode():
         for c in chunks:
             inputs = tokenizer(text=c, return_tensors="pt")
-            output = model(**inputs) if sid is None else model(**inputs, speaker_id=sid)
+            output = model(**inputs) if speaker_id is None else model(**inputs, speaker_id=speaker_id)
             wav = output.waveform.squeeze(0).numpy().astype(np.float32, copy=True)
             del output, inputs
             arrays.append(wav)
