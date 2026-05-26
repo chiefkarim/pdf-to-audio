@@ -18,6 +18,25 @@ RUN uv pip install --system --no-cache \
     --index-url https://download.pytorch.org/whl/cpu
 RUN uv pip install --system --no-cache -r requirements.txt
 
+# Cache paths for HuggingFace models (set before pre-bake RUNs)
+ENV TRANSFORMERS_CACHE=/opt/hf_cache
+ENV HF_HOME=/opt/hf_cache
+
+# Pre-download Coqui TTS model (quality female voice)
+RUN python -c "from TTS.api import TTS; TTS('tts_models/en/ljspeech/tacotron2-DDC', gpu=False)"
+
+# Pre-download MMS-TTS model (fast mode)
+RUN python -c "\
+from transformers import VitsModel, AutoTokenizer; \
+VitsModel.from_pretrained('facebook/mms-tts-eng'); \
+AutoTokenizer.from_pretrained('facebook/mms-tts-eng')"
+
+# Pre-download quality male VITS model
+RUN python -c "\
+from transformers import VitsModel, AutoTokenizer; \
+VitsModel.from_pretrained('ylacombe/vits_ljs_irish_male'); \
+AutoTokenizer.from_pretrained('ylacombe/vits_ljs_irish_male')"
+
 COPY backend/app/ ./app/
 COPY frontend/ ./frontend/
 
@@ -25,12 +44,14 @@ ENV PYTHONPATH=/app
 ENV MAX_UPLOAD_MB=50
 ENV DB_PATH=/app/data/jobs.db
 
+ENV MALLOC_ARENA_MAX=2
+ENV MALLOC_MMAP_THRESHOLD_=65536
+ENV MALLOC_TRIM_THRESHOLD_=65536
+
 RUN mkdir -p /app/data
 
 # HuggingFace Spaces runs containers as uid 1000
 RUN useradd -m -u 1000 appuser && chown -R appuser /app
 USER appuser
-
-RUN python -c "from TTS.api import TTS; TTS('tts_models/en/ljspeech/tacotron2-DDC', gpu=False)"
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
