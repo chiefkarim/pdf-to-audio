@@ -23,9 +23,19 @@ const retryBtn        = document.getElementById("retry-btn");
 const jobsList        = document.getElementById("jobs-list");
 const jobsEmpty       = document.getElementById("jobs-empty");
 const jobsSection     = document.getElementById("jobs-section");
+const voiceField      = document.getElementById("voice-field");
 
 // ── State ───────────────────────────────────────────────────────────────────
 let pollTimer = null;
+
+// ── Voice field visibility ───────────────────────────────────────────────────
+function updateVoiceVisibility() {
+  const mode = form.querySelector("input[name='mode']:checked")?.value;
+  voiceField.hidden = mode !== "quality";
+}
+form.querySelectorAll("input[name='mode']").forEach((r) =>
+  r.addEventListener("change", updateVoiceVisibility)
+);
 
 // ── File input wiring ───────────────────────────────────────────────────────
 fileInput.addEventListener("change", () => {
@@ -81,6 +91,7 @@ form.addEventListener("submit", async (e) => {
   const file   = fileInput.files[0];
   const format = form.querySelector("input[name='format']:checked").value;
   const mode   = form.querySelector("input[name='mode']:checked").value;
+  const voice  = form.querySelector("input[name='voice']:checked")?.value ?? "male";
 
   if (!file) {
     showError("Please select a PDF file.");
@@ -91,6 +102,7 @@ form.addEventListener("submit", async (e) => {
   body.append("file",   file);
   body.append("format", format);
   body.append("mode",   mode);
+  body.append("voice",  voice);
 
   convertBtn.disabled = true;
   setProgress(0, "Uploading…", "queued");

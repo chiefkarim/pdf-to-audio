@@ -10,7 +10,7 @@ from pathlib import Path
 from fastapi import APIRouter, BackgroundTasks, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
-from app.models.schemas import ExportFormat, JobStatus, TtsMode
+from app.models.schemas import ExportFormat, JobStatus, QualityVoice, TtsMode
 from app.services import audio_chain, ocr, tts
 from app import storage
 
@@ -41,8 +41,8 @@ def _get_max_bytes() -> int:
     return int(raw) * 1024 * 1024
 
 
-def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode) -> None:
-    logger.info("job %s started: format=%s mode=%s", job_id, fmt.value, mode.value)
+def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode, voice: QualityVoice) -> None:
+    logger.info("job %s started: format=%s mode=%s voice=%s", job_id, fmt.value, mode.value, voice.value)
     with tempfile.TemporaryDirectory() as page_dir_str:
         page_dir = Path(page_dir_str)
         try:
@@ -93,7 +93,7 @@ def _run_pipeline(job_id: str, tmp_path: Path, fmt: ExportFormat, mode: TtsMode)
                         event.wait()
 
                     if sentences:
-                        segments = tts.synthesise_parallel(sentences, mode=mode, executor=executor)
+                        segments = tts.synthesise_parallel(sentences, mode=mode, voice=voice, executor=executor)
                         logger.debug("job %s: page %d TTS done, %d segments", job_id, pages_processed + 1, len(segments))
                         dsp = audio_chain.apply_dsp(segments, sample_rate)
                         del segments
@@ -153,6 +153,7 @@ async def upload_pdf(
     background_tasks: BackgroundTasks,
     format: ExportFormat = Form(ExportFormat.mp3),
     mode: TtsMode = Form(TtsMode.fast),
+    voice: QualityVoice = Form(QualityVoice.male),
 ) -> JSONResponse:
     max_bytes = _get_max_bytes()
 
@@ -173,9 +174,9 @@ async def upload_pdf(
 
     filename = file.filename or ""
     job_id = storage.create_job(format, filename=filename, mode=mode)
-    logger.info("upload accepted: job=%s file=%r size=%d format=%s mode=%s", job_id, filename, total_size, format.value, mode.value)
+    logger.info("upload accepted: job=%s file=%r size=%d format=%s mode=%s voice=%s", job_id, filename, total_size, format.value, mode.value, voice.value)
 
-    background_tasks.add_task(_run_pipeline, job_id, tmp_path, format, mode)
+    background_tasks.add_task(_run_pipeline, job_id, tmp_path, format, mode, voice)
 
     return JSONResponse(
         status_code=202,

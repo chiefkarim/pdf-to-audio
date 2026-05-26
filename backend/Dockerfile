@@ -32,6 +32,12 @@ from transformers import VitsModel, AutoTokenizer; \
 VitsModel.from_pretrained('facebook/mms-tts-eng'); \
 AutoTokenizer.from_pretrained('facebook/mms-tts-eng')"
 
+# Pre-download quality male VITS model
+RUN python -c "\
+from transformers import VitsModel, AutoTokenizer; \
+VitsModel.from_pretrained('ylacombe/vits_ljs_irish_male'); \
+AutoTokenizer.from_pretrained('ylacombe/vits_ljs_irish_male')"
+
 # Copy app source
 COPY app/ ./app/
 

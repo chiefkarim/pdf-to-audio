@@ -18,6 +18,10 @@ class TtsMode(str, Enum):
     fast = "fast"
     quality = "quality"
 
+class QualityVoice(str, Enum):
+    male = "male"
+    female = "female"
+
 class Job(BaseModel):
     job_id: str
     status: JobStatus
