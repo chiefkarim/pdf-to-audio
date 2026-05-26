@@ -17,6 +17,7 @@ _QUALITY_MODEL = "tts_models/en/ljspeech/tacotron2-DDC"
 _FAST_MODEL_ID = "facebook/mms-tts-eng"
 _MAX_CHARS = 150
 _MAX_CHARS_FAST = 200
+_MIN_CHUNK_CHARS = 20  # Tacotron2 attention fails on very short encoder sequences
 
 SAMPLE_RATES: dict[str, int] = {"fast": 16000, "quality": 22050}
 
@@ -50,6 +51,17 @@ def get_sample_rate(mode: TtsMode = TtsMode.fast) -> int:
     return SAMPLE_RATES[mode]
 
 
+def _merge_short_chunks(parts: list[str], max_chars: int) -> list[str]:
+    """Merge chunks shorter than _MIN_CHUNK_CHARS into adjacent neighbours."""
+    merged: list[str] = []
+    for p in parts:
+        if merged and len(p) < _MIN_CHUNK_CHARS and len(merged[-1]) + 1 + len(p) <= max_chars:
+            merged[-1] = merged[-1] + " " + p
+        else:
+            merged.append(p)
+    return merged
+
+
 def _chunk(text: str) -> list[str]:
     """Split text into <=_MAX_CHARS chunks at natural break points."""
     if len(text) <= _MAX_CHARS:
@@ -67,7 +79,7 @@ def _chunk(text: str) -> list[str]:
         if current:
             parts.append(current.strip())
         if all(len(p) <= _MAX_CHARS for p in parts):
-            return [p for p in parts if p]
+            return _merge_short_chunks([p for p in parts if p], _MAX_CHARS)
     return [text[i:i + _MAX_CHARS] for i in range(0, len(text), _MAX_CHARS)]
 
 
@@ -88,7 +100,7 @@ def _chunk_fast(text: str) -> list[str]:
         if current:
             parts.append(current.strip())
         if all(len(p) <= _MAX_CHARS_FAST for p in parts):
-            return [p for p in parts if p]
+            return _merge_short_chunks([p for p in parts if p], _MAX_CHARS_FAST)
     return [text[i:i + _MAX_CHARS_FAST] for i in range(0, len(text), _MAX_CHARS_FAST)]
 
 
@@ -98,7 +110,9 @@ def synthesise(sentence: str, mode: TtsMode = TtsMode.fast) -> np.ndarray:
         return np.array([], dtype=np.float32)
 
     if mode == TtsMode.quality:
-        chunks = _chunk(cleaned)
+        chunks = [c for c in _chunk(cleaned) if len(c) >= _MIN_CHUNK_CHARS]
+        if not chunks:
+            return np.array([], dtype=np.float32)
         tts = _get_quality_tts()
         arrays = [np.array(tts.tts(text=c), dtype=np.float32) for c in chunks]
         return np.concatenate(arrays) if arrays else np.array([], dtype=np.float32)
